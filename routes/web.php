@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\MonumentController;
+use App\Http\Controllers\Auth\WikimediaAuthController;
 
 Route::get('/', function () {
     return redirect()->route('monuments.map');
@@ -12,6 +13,20 @@ Route::prefix('monuments')->name('monuments.')->group(function () {
     Route::get('/map', [MonumentController::class, 'map'])->name('map');
     Route::get('/list', [MonumentController::class, 'list'])->name('list');
     Route::get('/{monument}', [MonumentController::class, 'show'])->name('show');
+});
+
+// Authentication routes
+Route::prefix('auth')->name('auth.')->group(function () {
+    Route::get('/login', [WikimediaAuthController::class, 'showLogin'])->name('login');
+    Route::get('/wikimedia', [WikimediaAuthController::class, 'redirectToWikimedia'])->name('wikimedia.redirect');
+    Route::get('/wikimedia/callback', [WikimediaAuthController::class, 'handleWikimediaCallback'])->name('wikimedia.callback');
+    Route::post('/logout', [WikimediaAuthController::class, 'logout'])->name('logout');
+    
+    // Protected routes
+    Route::middleware('auth')->group(function () {
+        Route::get('/profile', [WikimediaAuthController::class, 'profile'])->name('profile');
+        Route::post('/profile/sync-wikimedia', [WikimediaAuthController::class, 'syncWikimediaData'])->name('profile.sync-wikimedia');
+    });
 });
 
 // API routes

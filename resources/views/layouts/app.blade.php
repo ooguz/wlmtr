@@ -44,10 +44,59 @@
                         </div>
                     </div>
                     <div class="hidden sm:ml-6 sm:flex sm:items-center">
-                        <div class="ml-3 relative">
+                        <div class="ml-3 relative flex items-center space-x-4">
                             <div class="text-sm text-gray-500">
                                 {{ \App\Models\Monument::count() }} anıt
                             </div>
+                            
+                            @auth
+                                <!-- User dropdown -->
+                                <div class="relative">
+                                    <div class="flex items-center space-x-3">
+                                        <span class="text-sm text-gray-700">{{ auth()->user()->display_name }}</span>
+                                        <div class="relative">
+                                            <button type="button" 
+                                                    class="flex text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" 
+                                                    id="user-menu-button" 
+                                                    aria-expanded="false" 
+                                                    aria-haspopup="true">
+                                                <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                                    <span class="text-sm font-medium text-blue-600">👤</span>
+                                                </div>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Dropdown menu -->
+                                    <div class="hidden origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50" 
+                                         role="menu" 
+                                         aria-orientation="vertical" 
+                                         aria-labelledby="user-menu-button" 
+                                         tabindex="-1"
+                                         id="user-menu">
+                                        <a href="{{ route('auth.profile') }}" 
+                                           class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" 
+                                           role="menuitem" 
+                                           tabindex="-1">
+                                            Profil
+                                        </a>
+                                        <form method="POST" action="{{ route('auth.logout') }}" class="block">
+                                            @csrf
+                                            <button type="submit" 
+                                                    class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" 
+                                                    role="menuitem" 
+                                                    tabindex="-1">
+                                                Çıkış Yap
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            @else
+                                <a href="{{ route('auth.login') }}" 
+                                   class="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium">
+                                    Giriş Yap
+                                </a>
+                            @endauth
                         </div>
                     </div>
                 </div>
@@ -84,5 +133,26 @@
     
     <!-- Additional scripts -->
     @stack('scripts')
+    
+    <!-- User dropdown script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const userMenuButton = document.getElementById('user-menu-button');
+            const userMenu = document.getElementById('user-menu');
+            
+            if (userMenuButton && userMenu) {
+                userMenuButton.addEventListener('click', function() {
+                    userMenu.classList.toggle('hidden');
+                });
+                
+                // Close dropdown when clicking outside
+                document.addEventListener('click', function(event) {
+                    if (!userMenuButton.contains(event.target) && !userMenu.contains(event.target)) {
+                        userMenu.classList.add('hidden');
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html> 
