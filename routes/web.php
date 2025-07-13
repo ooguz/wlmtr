@@ -6,7 +6,7 @@ use App\Http\Controllers\Auth\WikimediaAuthController;
 
 Route::get('/', function () {
     return view('monuments.map');
-});
+})->name('home');
 
 // Monument routes
 Route::prefix('monuments')->name('monuments.')->group(function () {
