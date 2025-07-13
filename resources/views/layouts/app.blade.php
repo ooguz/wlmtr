@@ -43,6 +43,8 @@
                             </a>
                         </div>
                     </div>
+                    
+                    <!-- Desktop Navigation -->
                     <div class="hidden sm:ml-6 sm:flex sm:items-center">
                         <div class="ml-3 relative flex items-center space-x-4">
                             <div class="text-sm text-gray-500">
@@ -99,6 +101,60 @@
                             @endauth
                         </div>
                     </div>
+
+                    <!-- Mobile menu button -->
+                    <div class="sm:hidden flex items-center">
+                        <button type="button" 
+                                class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500" 
+                                id="mobile-menu-button" 
+                                aria-expanded="false">
+                            <span class="sr-only">Open main menu</span>
+                            <svg class="block h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mobile menu -->
+            <div class="hidden sm:hidden" id="mobile-menu">
+                <div class="pt-2 pb-3 space-y-1">
+                    <a href="{{ route('monuments.map') }}" 
+                       class="border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700 block pl-3 pr-4 py-2 border-l-4 text-base font-medium">
+                        Harita
+                    </a>
+                    <a href="{{ route('monuments.list') }}" 
+                       class="border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700 block pl-3 pr-4 py-2 border-l-4 text-base font-medium">
+                        Liste
+                    </a>
+                </div>
+                <div class="pt-4 pb-3 border-t border-gray-200">
+                    <div class="flex items-center px-4">
+                        <div class="text-sm text-gray-500">
+                            {{ \App\Models\Monument::count() }} anıt
+                        </div>
+                    </div>
+                    <div class="mt-3 space-y-1">
+                        @auth
+                            <a href="{{ route('auth.profile') }}" 
+                               class="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100">
+                                Profil
+                            </a>
+                            <form method="POST" action="{{ route('auth.logout') }}" class="block">
+                                @csrf
+                                <button type="submit" 
+                                        class="block w-full text-left px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100">
+                                    Çıkış Yap
+                                </button>
+                            </form>
+                        @else
+                            <a href="{{ route('auth.login') }}" 
+                               class="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100">
+                                Giriş Yap
+                            </a>
+                        @endauth
+                    </div>
                 </div>
             </div>
         </nav>
@@ -134,9 +190,10 @@
     <!-- Additional scripts -->
     @stack('scripts')
     
-    <!-- User dropdown script -->
+    <!-- Navigation scripts -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Desktop user dropdown
             const userMenuButton = document.getElementById('user-menu-button');
             const userMenu = document.getElementById('user-menu');
             
@@ -149,6 +206,23 @@
                 document.addEventListener('click', function(event) {
                     if (!userMenuButton.contains(event.target) && !userMenu.contains(event.target)) {
                         userMenu.classList.add('hidden');
+                    }
+                });
+            }
+
+            // Mobile menu
+            const mobileMenuButton = document.getElementById('mobile-menu-button');
+            const mobileMenu = document.getElementById('mobile-menu');
+            
+            if (mobileMenuButton && mobileMenu) {
+                mobileMenuButton.addEventListener('click', function() {
+                    mobileMenu.classList.toggle('hidden');
+                });
+                
+                // Close mobile menu when clicking outside
+                document.addEventListener('click', function(event) {
+                    if (!mobileMenuButton.contains(event.target) && !mobileMenu.contains(event.target)) {
+                        mobileMenu.classList.add('hidden');
                     }
                 });
             }
