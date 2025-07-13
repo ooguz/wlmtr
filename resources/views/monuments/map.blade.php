@@ -259,7 +259,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Add new markers
                 data.forEach(monument => {
-                    const marker = L.marker([monument.coordinates.lat, monument.coordinates.lng]);
+                    const marker = L.circleMarker([monument.coordinates.lat, monument.coordinates.lng], {
+                        radius: 6,
+                        fillColor: '#3B82F6',
+                        color: '#1E40AF',
+                        weight: 2,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    });
                     
                     marker.monument = monument;
                     markers.push(marker);
