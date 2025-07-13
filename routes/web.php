@@ -5,7 +5,7 @@ use App\Http\Controllers\MonumentController;
 use App\Http\Controllers\Auth\WikimediaAuthController;
 
 Route::get('/', function () {
-    return redirect()->route('monuments.map');
+    return view('monuments.map');
 });
 
 // Monument routes

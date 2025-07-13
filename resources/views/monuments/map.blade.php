@@ -3,12 +3,12 @@
 @section('title', 'Anıt Haritası')
 
 @section('content')
-<div class="relative h-screen">
+<div class="relative h-[calc(100vh-4rem)]">
     <!-- Map Container -->
     <div id="map" class="w-full h-full"></div>
     
     <!-- Search Panel -->
-    <div id="searchPanel" class="absolute top-4 left-4 z-20 bg-white rounded-lg shadow-lg p-4 w-80 max-h-[calc(100vh-2rem)] overflow-y-auto">
+    <div id="searchPanel" class="absolute top-4 left-4 z-20 bg-white rounded-lg shadow-lg p-4 w-80 max-h-[calc(100vh-8rem)] overflow-y-auto">
         <h3 class="text-lg font-semibold mb-4">Anıt Ara</h3>
         
         <!-- Search Input -->
@@ -70,7 +70,7 @@
     </div>
     
     <!-- Monument Info Panel -->
-    <div id="monumentInfo" class="absolute top-4 right-4 z-20 bg-white rounded-lg shadow-lg p-4 w-80 max-h-[calc(100vh-2rem)] overflow-y-auto hidden">
+    <div id="monumentInfo" class="absolute top-4 right-4 z-20 bg-white rounded-lg shadow-lg p-4 w-80 max-h-[calc(100vh-8rem)] overflow-y-auto hidden">
         <div class="flex justify-between items-start mb-3">
             <h3 id="monumentTitle" class="text-lg font-semibold"></h3>
             <button id="closeInfo" class="text-gray-400 hover:text-gray-600">
@@ -204,18 +204,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 map.setView([lat, lng], 12);
                 
                 // Add user location marker
-                L.marker([lat, lng], {
-                    icon: L.divIcon({
-                        className: 'user-location',
-                        html: '📍',
-                        iconSize: [30, 30],
-                        iconAnchor: [15, 15]
-                    })
-                }).addTo(map);
+                L.marker([lat, lng])
+                    .addTo(map)
+                    .bindPopup('Konumunuz')
+                    .openPopup();
                 
                 // Filter monuments by distance
                 const distance = parseInt(distanceFilter.value);
-                loadMonumentsByDistance(lat, lng, distance);
+                filterByDistance(lat, lng, distance);
             }, function(error) {
                 alert('Konum alınamadı: ' + error.message);
             });
@@ -223,6 +219,34 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Tarayıcınız konum özelliğini desteklemiyor.');
         }
     });
+    
+    // Filter monuments by distance from user location
+    function filterByDistance(userLat, userLng, maxDistance) {
+        markers.forEach(marker => {
+            const monumentLat = marker.monument.latitude;
+            const monumentLng = marker.monument.longitude;
+            
+            const distance = calculateDistance(userLat, userLng, monumentLat, monumentLng);
+            
+            if (distance <= maxDistance) {
+                marker.addTo(map);
+            } else {
+                marker.remove();
+            }
+        });
+    }
+    
+    // Calculate distance between two points (Haversine formula)
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371; // Earth's radius in kilometers
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+    }
     
     // Load monuments from API
     function loadMonuments() {
@@ -235,89 +259,49 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Add new markers
                 data.forEach(monument => {
-                    if (monument.coordinates) {
-                        const marker = L.marker([monument.coordinates.lat, monument.coordinates.lng], {
-                            icon: createMonumentIcon(monument)
-                        });
-                        
-                        marker.monument = monument;
-                        marker.addTo(map);
-                        markers.push(marker);
-                        
-                        marker.on('click', function() {
-                            showMonumentInfo(monument);
-                        });
-                    }
+                    const marker = L.marker([monument.latitude, monument.longitude])
+                        .bindPopup(`
+                            <div class="p-2">
+                                <h3 class="font-semibold">${monument.name}</h3>
+                                <p class="text-sm text-gray-600">${monument.province}</p>
+                                <p class="text-xs text-gray-500">${monument.photo_count} fotoğraf</p>
+                            </div>
+                        `);
+                    
+                    marker.monument = monument;
+                    markers.push(marker);
+                    marker.addTo(map);
+                    
+                    // Add click event
+                    marker.on('click', function() {
+                        showMonumentInfo(monument);
+                    });
                 });
                 
                 // Load provinces for filter
-                loadProvinces(data);
+                loadProvinces();
             })
             .catch(error => {
                 console.error('Error loading monuments:', error);
             });
     }
     
-    // Load monuments by distance
-    function loadMonumentsByDistance(lat, lng, distance) {
-        const params = new URLSearchParams({
-            lat: lat,
-            lng: lng,
-            distance: distance
-        });
-        
-        fetch(`/api/monuments/map-markers?${params}`)
+    // Load provinces for filter
+    function loadProvinces() {
+        fetch('/api/monuments/filters')
             .then(response => response.json())
             .then(data => {
-                // Clear existing markers
-                markers.forEach(marker => marker.remove());
-                markers = [];
-                
-                // Add new markers
-                data.forEach(monument => {
-                    if (monument.coordinates) {
-                        const marker = L.marker([monument.coordinates.lat, monument.coordinates.lng], {
-                            icon: createMonumentIcon(monument)
-                        });
-                        
-                        marker.monument = monument;
-                        marker.addTo(map);
-                        markers.push(marker);
-                        
-                        marker.on('click', function() {
-                            showMonumentInfo(monument);
-                        });
-                    }
+                const provinceFilter = document.getElementById('provinceFilter');
+                data.provinces.forEach(province => {
+                    const option = document.createElement('option');
+                    option.value = province;
+                    option.textContent = province;
+                    provinceFilter.appendChild(option);
                 });
             })
             .catch(error => {
-                console.error('Error loading monuments by distance:', error);
+                console.error('Error loading provinces:', error);
             });
-    }
-    
-    // Create custom icon for monuments
-    function createMonumentIcon(monument) {
-        const hasPhotos = monument.has_photos;
-        const color = hasPhotos ? '#10B981' : '#6B7280';
-        
-        return L.divIcon({
-            className: 'monument-marker',
-            html: `<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
-            iconSize: [20, 20],
-            iconAnchor: [10, 10]
-        });
-    }
-    
-    // Load provinces for filter
-    function loadProvinces(monuments) {
-        const provinces = [...new Set(monuments.map(m => m.province).filter(Boolean))].sort();
-        
-        provinces.forEach(province => {
-            const option = document.createElement('option');
-            option.value = province;
-            option.textContent = province;
-            provinceFilter.appendChild(option);
-        });
     }
     
     // Show monument info panel
@@ -332,27 +316,17 @@ document.addEventListener('DOMContentLoaded', function() {
         
         title.textContent = monument.name;
         description.textContent = monument.description || 'Açıklama bulunmuyor.';
-        province.textContent = monument.province || 'Bilinmeyen il';
+        province.textContent = monument.province;
         photoCount.textContent = `${monument.photo_count} fotoğraf`;
-        
-        detailsLink.href = monument.url;
+        detailsLink.href = `/monuments/${monument.id}`;
         wikidataLink.href = `https://www.wikidata.org/wiki/${monument.wikidata_id}`;
         
         infoPanel.classList.remove('hidden');
     }
     
-    // Close info panel
+    // Close monument info panel
     document.getElementById('closeInfo').addEventListener('click', function() {
         document.getElementById('monumentInfo').classList.add('hidden');
-    });
-    
-    // Handle window resize
-    window.addEventListener('resize', function() {
-        if (window.innerWidth >= 768) {
-            searchPanel.classList.remove('hidden');
-        } else {
-            searchPanel.classList.add('hidden');
-        }
     });
 });
 </script>
