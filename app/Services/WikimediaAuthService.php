@@ -16,6 +16,11 @@ class WikimediaAuthService
      */
     public function getAuthorizationUrl(): string
     {
+        // For development, redirect to a mock login page
+        if (app()->environment('local')) {
+            return route('auth.mock-login');
+        }
+
         $params = [
             'title' => 'Special:OAuth/authorize',
             'oauth_consumer_key' => config('services.wikimedia.client_id'),
@@ -37,6 +42,11 @@ class WikimediaAuthService
     public function handleCallback(array $callbackData): ?array
     {
         try {
+            // For development, use mock data
+            if (app()->environment('local')) {
+                return $this->getMockUserData();
+            }
+
             // Extract user information from the callback
             $userData = $this->getUserInfo($callbackData);
             
@@ -60,6 +70,23 @@ class WikimediaAuthService
         }
 
         return null;
+    }
+
+    /**
+     * Get mock user data for development.
+     */
+    private function getMockUserData(): array
+    {
+        return [
+            'wikimedia_id' => '12345',
+            'username' => 'TestWikimediaUser',
+            'real_name' => 'Test Wikimedia User',
+            'email' => 'test@wikimedia.org',
+            'groups' => ['user', 'autoconfirmed'],
+            'rights' => ['edit', 'upload', 'createpage'],
+            'edit_count' => 150,
+            'registration_date' => now()->subYears(2),
+        ];
     }
 
     /**
@@ -116,6 +143,11 @@ class WikimediaAuthService
      */
     public function hasCommonsEditPermission(string $username): bool
     {
+        // For development, return true for mock users
+        if (app()->environment('local')) {
+            return true;
+        }
+
         try {
             $response = Http::get('https://commons.wikimedia.org/w/api.php', [
                 'action' => 'query',
@@ -147,6 +179,22 @@ class WikimediaAuthService
      */
     public function getUserUploadHistory(string $username): array
     {
+        // For development, return mock data
+        if (app()->environment('local')) {
+            return [
+                [
+                    'title' => 'File:Test_photo_1.jpg',
+                    'timestamp' => now()->subDays(5)->toISOString(),
+                    'comment' => 'Test upload for WLM Turkey',
+                ],
+                [
+                    'title' => 'File:Test_photo_2.jpg',
+                    'timestamp' => now()->subDays(10)->toISOString(),
+                    'comment' => 'Another test upload',
+                ],
+            ];
+        }
+
         try {
             $response = Http::get('https://commons.wikimedia.org/w/api.php', [
                 'action' => 'query',

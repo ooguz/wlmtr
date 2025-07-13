@@ -26,6 +26,33 @@ class WikimediaAuthController extends Controller
     }
 
     /**
+     * Show the mock login page for development.
+     */
+    public function showMockLogin(): View
+    {
+        return view('auth.mock-login');
+    }
+
+    /**
+     * Handle mock login for development.
+     */
+    public function handleMockLogin(Request $request): RedirectResponse
+    {
+        $userData = $this->wikimediaAuth->handleCallback([]);
+        
+        if ($userData) {
+            $user = $this->findOrCreateUser($userData);
+            Auth::login($user);
+            
+            return redirect()->intended(route('monuments.map'))
+                ->with('success', 'Test hesabıyla giriş yapıldı!');
+        }
+        
+        return redirect()->route('auth.login')
+            ->withErrors(['wikimedia' => 'Test girişi başarısız.']);
+    }
+
+    /**
      * Redirect to Wikimedia OAuth.
      */
     public function redirectToWikimedia(): RedirectResponse
