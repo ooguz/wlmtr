@@ -7,7 +7,7 @@
     <!-- Header -->
     <div class="mb-8">
         <h1 class="text-3xl font-bold text-gray-900">Profil</h1>
-        <p class="mt-2 text-gray-600">Wikimedia hesap bilgileriniz ve istatistikleriniz</p>
+        <p class="mt-2 text-gray-600">Wikimedia Commons hesap bilgileriniz ve istatistikleriniz</p>
     </div>
 
     @if (session('success'))
@@ -66,26 +66,26 @@
                         <p class="text-gray-600">{{ $user->email }}</p>
                         @if($user->isWikimediaConnected())
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                Wikimedia Bağlı
+                                Commons Bağlı
                             </span>
                         @else
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                Wikimedia Bağlı Değil
+                                Commons Bağlı Değil
                             </span>
                         @endif
                     </div>
                 </div>
 
                 @if($user->isWikimediaConnected())
-                    <!-- Wikimedia Information -->
+                    <!-- Wikimedia Commons Information -->
                     <div class="border-t border-gray-200 pt-6">
-                        <h3 class="text-lg font-medium text-gray-900 mb-4">Wikimedia Hesap Bilgileri</h3>
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Wikimedia Commons Hesap Bilgileri</h3>
                         
                         <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Wikimedia Kullanıcı Adı</dt>
+                                <dt class="text-sm font-medium text-gray-500">Commons Kullanıcı Adı</dt>
                                 <dd class="mt-1 text-sm text-gray-900">
-                                    <a href="https://meta.wikimedia.org/wiki/User:{{ $user->wikimedia_username }}" 
+                                    <a href="https://commons.wikimedia.org/wiki/User:{{ $user->wikimedia_username }}" 
                                        target="_blank" 
                                        class="text-blue-600 hover:text-blue-800">
                                         {{ $user->wikimedia_username }}
@@ -101,7 +101,7 @@
                             @endif
 
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Wikimedia Edit Sayısı</dt>
+                                <dt class="text-sm font-medium text-gray-500">Commons Edit Sayısı</dt>
                                 <dd class="mt-1 text-sm text-gray-900">{{ number_format($user->wikimedia_edit_count) }}</dd>
                             </div>
 
@@ -137,7 +137,7 @@
 
                         @if($user->wikimedia_groups)
                             <div class="mt-6">
-                                <dt class="text-sm font-medium text-gray-500 mb-2">Wikimedia Grupları</dt>
+                                <dt class="text-sm font-medium text-gray-500 mb-2">Commons Grupları</dt>
                                 <div class="flex flex-wrap gap-2">
                                     @foreach($user->wikimedia_groups as $group)
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
@@ -150,7 +150,7 @@
 
                         @if($user->wikimedia_rights)
                             <div class="mt-6">
-                                <dt class="text-sm font-medium text-gray-500 mb-2">Wikimedia Hakları</dt>
+                                <dt class="text-sm font-medium text-gray-500 mb-2">Commons Hakları</dt>
                                 <div class="flex flex-wrap gap-2">
                                     @foreach($user->wikimedia_rights as $right)
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
@@ -168,14 +168,14 @@
                             <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
                             </svg>
-                            <h3 class="mt-2 text-sm font-medium text-gray-900">Wikimedia Hesabı Bağlı Değil</h3>
+                            <h3 class="mt-2 text-sm font-medium text-gray-900">Wikimedia Commons Hesabı Bağlı Değil</h3>
                             <p class="mt-1 text-sm text-gray-500">
                                 Wikimedia Commons'a fotoğraf yüklemek için hesabınızı bağlayın.
                             </p>
                             <div class="mt-6">
                                 <a href="{{ route('auth.wikimedia.redirect') }}" 
                                    class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                    Wikimedia ile Bağlan
+                                    Commons ile Bağlan
                                 </a>
                             </div>
                         </div>
@@ -203,7 +203,7 @@
                     
                     @if($user->isWikimediaConnected())
                         <div>
-                            <dt class="text-sm font-medium text-gray-500">Wikimedia Edit Sayısı</dt>
+                            <dt class="text-sm font-medium text-gray-500">Commons Edit Sayısı</dt>
                             <dd class="mt-1 text-2xl font-semibold text-gray-900">{{ number_format($user->wikimedia_edit_count) }}</dd>
                         </div>
                     @endif
@@ -220,7 +220,7 @@
                             @csrf
                             <button type="submit" 
                                     class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                Wikimedia Verilerini Senkronize Et
+                                Commons Verilerini Senkronize Et
                             </button>
                         </form>
                     @endif

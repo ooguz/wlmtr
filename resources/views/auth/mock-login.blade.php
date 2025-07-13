@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Test Girişi')
+@section('title', 'Test Girişi - Commons')
 
 @section('content')
 <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -13,17 +13,17 @@
                 Test Girişi
             </h2>
             <p class="mt-2 text-center text-sm text-gray-600">
-                Geliştirme ortamı için test hesabı
+                Geliştirme ortamı için test Commons hesabı
             </p>
         </div>
         
         <div class="bg-white py-8 px-6 shadow rounded-lg sm:px-10">
             <div class="text-center mb-8">
                 <h3 class="text-lg font-medium text-gray-900 mb-2">
-                    Test Wikimedia Hesabı
+                    Test Wikimedia Commons Hesabı
                 </h3>
                 <p class="text-sm text-gray-600">
-                    Bu, gerçek Wikimedia OAuth olmadan test etmek için kullanılır.
+                    Bu, gerçek Wikimedia Commons OAuth olmadan test etmek için kullanılır.
                 </p>
             </div>
 
@@ -56,7 +56,7 @@
                                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
                                 </svg>
                             </span>
-                            Test Hesabıyla Giriş Yap
+                            Test Commons Hesabıyla Giriş Yap
                         </button>
                     </form>
                 </div>
@@ -79,24 +79,26 @@
             </div>
 
             <div class="mt-8 bg-gray-50 rounded-lg p-4">
-                <h4 class="text-sm font-medium text-gray-900 mb-2">Test Hesabı Bilgileri</h4>
+                <h4 class="text-sm font-medium text-gray-900 mb-2">Test Commons Hesabı Bilgileri</h4>
                 <ul class="text-xs text-gray-600 space-y-1">
-                    <li>• Kullanıcı Adı: TestWikimediaUser</li>
-                    <li>• Edit Sayısı: 150</li>
+                    <li>• Kullanıcı Adı: TestCommonsUser</li>
+                    <li>• Edit Sayısı: 250</li>
                     <li>• Commons Düzenleme İzni: Var</li>
-                    <li>• Gruplar: user, autoconfirmed</li>
-                    <li>• Haklar: edit, upload, createpage</li>
+                    <li>• Gruplar: user, autoconfirmed, filemover</li>
+                    <li>• Haklar: edit, upload, createpage, movefile</li>
+                    <li>• Toplam Yükleme: 45 dosya</li>
+                    <li>• Öne Çıkan Resimler: 2</li>
                 </ul>
             </div>
         </div>
 
         <div class="text-center">
             <p class="text-xs text-gray-500">
-                Bu sadece geliştirme ortamı içindir. Gerçek Wikimedia OAuth için 
-                <a href="https://meta.wikimedia.org/wiki/Special:OAuthConsumerRegistration" 
+                Bu sadece geliştirme ortamı içindir. Gerçek Wikimedia Commons OAuth için 
+                <a href="https://commons.wikimedia.org/wiki/Special:OAuthConsumerRegistration" 
                    target="_blank" 
                    class="text-blue-600 hover:text-blue-500">
-                    OAuth Consumer kaydı
+                    Commons OAuth Consumer kaydı
                 </a> gerekir.
             </p>
         </div>

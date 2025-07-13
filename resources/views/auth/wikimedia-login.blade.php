@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Wikimedia ile Giriş')
+@section('title', 'Wikimedia Commons ile Giriş')
 
 @section('content')
 <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -20,10 +20,10 @@
         <div class="bg-white py-8 px-6 shadow rounded-lg sm:px-10">
             <div class="text-center mb-8">
                 <h3 class="text-lg font-medium text-gray-900 mb-2">
-                    Wikimedia Hesabınızla Giriş Yapın
+                    Wikimedia Commons Hesabınızla Giriş Yapın
                 </h3>
                 <p class="text-sm text-gray-600">
-                    Wikimedia Commons'a fotoğraf yüklemek için Wikimedia hesabınızla giriş yapın.
+                    Wikimedia Commons'a fotoğraf yüklemek için Commons hesabınızla giriş yapın.
                 </p>
             </div>
 
@@ -60,7 +60,7 @@
                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
                             </svg>
                         </span>
-                        Wikimedia ile Giriş Yap
+                        Wikimedia Commons ile Giriş Yap
                     </a>
                 </div>
 
@@ -82,12 +82,13 @@
             </div>
 
             <div class="mt-8 bg-gray-50 rounded-lg p-4">
-                <h4 class="text-sm font-medium text-gray-900 mb-2">Wikimedia Girişi Hakkında</h4>
+                <h4 class="text-sm font-medium text-gray-900 mb-2">Wikimedia Commons Girişi Hakkında</h4>
                 <ul class="text-xs text-gray-600 space-y-1">
                     <li>• Wikimedia Commons'a fotoğraf yükleyebilirsiniz</li>
                     <li>• Anıt fotoğraflarınızı paylaşabilirsiniz</li>
-                    <li>• Wikimedia edit geçmişiniz görüntülenir</li>
+                    <li>• Commons edit geçmişiniz görüntülenir</li>
                     <li>• Hesabınız güvenli şekilde bağlanır</li>
+                    <li>• Commons özel izinleriniz kontrol edilir</li>
                 </ul>
             </div>
         </div>
@@ -100,10 +101,10 @@
                     Wikimedia Commons Hakkında
                 </a>
                 •
-                <a href="https://www.wikidata.org/wiki/Wikidata:Main_Page" 
+                <a href="https://commons.wikimedia.org/wiki/Special:OAuthConsumerRegistration" 
                    target="_blank" 
                    class="text-blue-600 hover:text-blue-500">
-                    Wikidata
+                    OAuth Kaydı
                 </a>
             </p>
         </div>

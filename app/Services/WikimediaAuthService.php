@@ -8,8 +8,8 @@ use Illuminate\Support\Str;
 
 class WikimediaAuthService
 {
-    private const WIKIMEDIA_OAUTH_URL = 'https://meta.wikimedia.org/w/index.php';
-    private const WIKIMEDIA_API_URL = 'https://meta.wikimedia.org/w/api.php';
+    private const COMMONS_OAUTH_URL = 'https://commons.wikimedia.org/w/index.php';
+    private const COMMONS_API_URL = 'https://commons.wikimedia.org/w/api.php';
 
     /**
      * Get the OAuth authorization URL.
@@ -33,7 +33,7 @@ class WikimediaAuthService
             'state' => Str::random(40),
         ];
 
-        return self::WIKIMEDIA_OAUTH_URL . '?' . http_build_query($params);
+        return self::COMMONS_OAUTH_URL . '?' . http_build_query($params);
     }
 
     /**
@@ -63,7 +63,7 @@ class WikimediaAuthService
                 ];
             }
         } catch (\Exception $e) {
-            Log::error('Wikimedia OAuth callback error', [
+            Log::error('Wikimedia Commons OAuth callback error', [
                 'error' => $e->getMessage(),
                 'callback_data' => $callbackData,
             ]);
@@ -79,22 +79,22 @@ class WikimediaAuthService
     {
         return [
             'wikimedia_id' => '12345',
-            'username' => 'TestWikimediaUser',
-            'real_name' => 'Test Wikimedia User',
-            'email' => 'test@wikimedia.org',
-            'groups' => ['user', 'autoconfirmed'],
-            'rights' => ['edit', 'upload', 'createpage'],
-            'edit_count' => 150,
+            'username' => 'TestCommonsUser',
+            'real_name' => 'Test Commons User',
+            'email' => 'test@commons.wikimedia.org',
+            'groups' => ['user', 'autoconfirmed', 'filemover'],
+            'rights' => ['edit', 'upload', 'createpage', 'movefile'],
+            'edit_count' => 250,
             'registration_date' => now()->subYears(2),
         ];
     }
 
     /**
-     * Get user information from Wikimedia API.
+     * Get user information from Wikimedia Commons API.
      */
     private function getUserInfo(array $callbackData): ?array
     {
-        $response = Http::get(self::WIKIMEDIA_API_URL, [
+        $response = Http::get(self::COMMONS_API_URL, [
             'action' => 'query',
             'meta' => 'userinfo',
             'format' => 'json',
@@ -149,7 +149,7 @@ class WikimediaAuthService
         }
 
         try {
-            $response = Http::get('https://commons.wikimedia.org/w/api.php', [
+            $response = Http::get(self::COMMONS_API_URL, [
                 'action' => 'query',
                 'meta' => 'userinfo',
                 'format' => 'json',
@@ -183,20 +183,28 @@ class WikimediaAuthService
         if (app()->environment('local')) {
             return [
                 [
-                    'title' => 'File:Test_photo_1.jpg',
+                    'title' => 'File:WLM_Turkey_Test_1.jpg',
                     'timestamp' => now()->subDays(5)->toISOString(),
-                    'comment' => 'Test upload for WLM Turkey',
+                    'comment' => 'Test upload for Wiki Loves Monuments Turkey',
+                    'size' => 2048576,
                 ],
                 [
-                    'title' => 'File:Test_photo_2.jpg',
+                    'title' => 'File:WLM_Turkey_Test_2.jpg',
                     'timestamp' => now()->subDays(10)->toISOString(),
-                    'comment' => 'Another test upload',
+                    'comment' => 'Another test upload for WLM Turkey',
+                    'size' => 1536000,
+                ],
+                [
+                    'title' => 'File:Monument_Test_Photo.jpg',
+                    'timestamp' => now()->subDays(15)->toISOString(),
+                    'comment' => 'Test monument photo upload',
+                    'size' => 3072000,
                 ],
             ];
         }
 
         try {
-            $response = Http::get('https://commons.wikimedia.org/w/api.php', [
+            $response = Http::get(self::COMMONS_API_URL, [
                 'action' => 'query',
                 'list' => 'usercontribs',
                 'ucuser' => $username,
@@ -211,6 +219,53 @@ class WikimediaAuthService
             }
         } catch (\Exception $e) {
             Log::error('Error getting user upload history', [
+                'username' => $username,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return [];
+    }
+
+    /**
+     * Get user's Commons-specific statistics.
+     */
+    public function getUserCommonsStats(string $username): array
+    {
+        // For development, return mock stats
+        if (app()->environment('local')) {
+            return [
+                'total_uploads' => 45,
+                'total_views' => 12500,
+                'featured_pictures' => 2,
+                'quality_images' => 5,
+                'valued_images' => 8,
+                'last_upload' => now()->subDays(2)->toISOString(),
+            ];
+        }
+
+        try {
+            // Get user's upload count
+            $response = Http::get(self::COMMONS_API_URL, [
+                'action' => 'query',
+                'list' => 'usercontribs',
+                'ucuser' => $username,
+                'ucnamespace' => 6,
+                'uclimit' => 1,
+                'format' => 'json',
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                $contribs = $data['query']['usercontribs'] ?? [];
+                
+                return [
+                    'total_uploads' => count($contribs),
+                    'last_upload' => $contribs[0]['timestamp'] ?? null,
+                ];
+            }
+        } catch (\Exception $e) {
+            Log::error('Error getting user Commons stats', [
                 'username' => $username,
                 'error' => $e->getMessage(),
             ]);
