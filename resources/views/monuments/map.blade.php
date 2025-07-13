@@ -259,14 +259,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Add new markers
                 data.forEach(monument => {
-                    const marker = L.marker([monument.coordinates.lat, monument.coordinates.lng])
-                        .bindPopup(`
-                            <div class="p-2">
-                                <h3 class="font-semibold">${monument.name}</h3>
-                                <p class="text-sm text-gray-600">${monument.province}</p>
-                                <p class="text-xs text-gray-500">${monument.photo_count} fotoğraf</p>
-                            </div>
-                        `);
+                    const marker = L.marker([monument.coordinates.lat, monument.coordinates.lng]);
                     
                     marker.monument = monument;
                     markers.push(marker);
