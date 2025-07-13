@@ -92,6 +92,22 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user has a password (for traditional login).
+     */
+    public function hasPassword(): bool
+    {
+        return !empty($this->password);
+    }
+
+    /**
+     * Check if user can use traditional login (has password).
+     */
+    public function canUseTraditionalLogin(): bool
+    {
+        return $this->hasPassword();
+    }
+
+    /**
      * Get the display name (Wikimedia username preferred).
      */
     public function getDisplayNameAttribute(): string
