@@ -223,8 +223,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Filter monuments by distance from user location
     function filterByDistance(userLat, userLng, maxDistance) {
         markers.forEach(marker => {
-            const monumentLat = marker.monument.latitude;
-            const monumentLng = marker.monument.longitude;
+            const monumentLat = marker.monument.coordinates.lat;
+            const monumentLng = marker.monument.coordinates.lng;
             
             const distance = calculateDistance(userLat, userLng, monumentLat, monumentLng);
             
@@ -259,7 +259,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Add new markers
                 data.forEach(monument => {
-                    const marker = L.marker([monument.latitude, monument.longitude])
+                    const marker = L.marker([monument.coordinates.lat, monument.coordinates.lng])
                         .bindPopup(`
                             <div class="p-2">
                                 <h3 class="font-semibold">${monument.name}</h3>
