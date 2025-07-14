@@ -26,6 +26,57 @@
         </ol>
     </nav>
     
+    <!-- Photo Carousel -->
+    @if($monument->photos->count() > 0)
+        <div class="mb-8">
+            <div class="relative">
+                <div id="detailCarousel" class="overflow-hidden rounded-lg">
+                    <div id="detailCarouselTrack" class="flex transition-transform duration-300 ease-in-out">
+                        @foreach($monument->photos as $photo)
+                            <div class="flex-shrink-0 w-full">
+                                <img src="{{ $photo->display_url }}" 
+                                     alt="{{ $photo->title ?? $monument->primary_name }}"
+                                     class="w-full h-96 object-cover cursor-pointer"
+                                     onclick="openDetailPhotoModal('{{ $photo->full_resolution_url }}', '{{ $photo->commons_url }}', '{{ $photo->title ?? '' }}', '{{ $photo->photographer ?? '' }}', '{{ $photo->license_display_name ?? '' }}')">
+                                
+                                <!-- Photo Info Overlay -->
+                                <div class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white p-4">
+                                    <div class="font-semibold">{{ $photo->title ?? 'Untitled' }}</div>
+                                    @if($photo->photographer)
+                                        <div class="text-sm text-gray-300">by {{ $photo->photographer }}</div>
+                                    @endif
+                                    @if($photo->license_display_name)
+                                        <div class="text-xs text-gray-300">{{ $photo->license_display_name }}</div>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+                
+                <!-- Carousel Navigation -->
+                <button id="detailPrevPhoto" class="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white rounded-full p-2 hover:bg-opacity-75">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                </button>
+                <button id="detailNextPhoto" class="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white rounded-full p-2 hover:bg-opacity-75">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </button>
+                
+                <!-- Carousel Indicators -->
+                <div id="detailCarouselIndicators" class="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+                    @foreach($monument->photos as $index => $photo)
+                        <button class="w-3 h-3 rounded-full {{ $index === 0 ? 'bg-white' : 'bg-white bg-opacity-50' }}" 
+                                onclick="goToDetailSlide({{ $index }})"></button>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+    @endif
+    
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- Main Content -->
         <div class="lg:col-span-2">
@@ -255,6 +306,74 @@
                 iconAnchor: [10, 10]
             })
         }).addTo(map);
+    });
+    </script>
+    @endpush
+@endif
+
+@if($monument->photos->count() > 0)
+    @push('scripts')
+    <script>
+    // Detail page carousel functionality
+    let currentDetailSlide = 0;
+    const totalDetailSlides = {{ $monument->photos->count() }};
+    
+    function goToDetailSlide(index) {
+        const track = document.getElementById('detailCarouselTrack');
+        const indicators = document.querySelectorAll('#detailCarouselIndicators button');
+        
+        currentDetailSlide = index;
+        track.style.transform = `translateX(-${index * 100}%)`;
+        
+        // Update indicators
+        indicators.forEach((indicator, i) => {
+            indicator.className = `w-3 h-3 rounded-full ${i === index ? 'bg-white' : 'bg-white bg-opacity-50'}`;
+        });
+    }
+    
+    function nextDetailSlide() {
+        if (currentDetailSlide < totalDetailSlides - 1) {
+            goToDetailSlide(currentDetailSlide + 1);
+        }
+    }
+    
+    function prevDetailSlide() {
+        if (currentDetailSlide > 0) {
+            goToDetailSlide(currentDetailSlide - 1);
+        }
+    }
+    
+    function openDetailPhotoModal(imageUrl, commonsUrl, title, photographer, license) {
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50';
+        modal.innerHTML = `
+            <div class="relative max-w-6xl max-h-full p-4">
+                <button onclick="this.parentElement.parentElement.remove()" class="absolute top-4 right-4 text-white text-3xl hover:text-gray-300">&times;</button>
+                <div class="text-center">
+                    <img src="${imageUrl}" alt="${title}" class="max-w-full max-h-[80vh] object-contain mx-auto">
+                    <div class="mt-4 text-white">
+                        <h3 class="text-xl font-semibold">${title}</h3>
+                        ${photographer ? `<p class="text-gray-300">by ${photographer}</p>` : ''}
+                        ${license ? `<p class="text-sm text-gray-400">${license}</p>` : ''}
+                        <div class="mt-4">
+                            <a href="${commonsUrl}" target="_blank" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                                <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                </svg>
+                                View on Commons
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    // Add event listeners
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('detailNextPhoto').addEventListener('click', nextDetailSlide);
+        document.getElementById('detailPrevPhoto').addEventListener('click', prevDetailSlide);
     });
     </script>
     @endpush

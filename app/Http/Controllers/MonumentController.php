@@ -128,6 +128,19 @@ class MonumentController extends Controller
                 'has_photos' => $monument->has_photos,
                 'photo_count' => $monument->photo_count,
                 'featured_photo' => $monument->featured_photo?->display_url,
+                'photos' => $monument->photos->take(5)->map(function ($photo) {
+                    return [
+                        'id' => $photo->id,
+                        'title' => $photo->title,
+                        'description' => $photo->description,
+                        'photographer' => $photo->photographer,
+                        'license' => $photo->license_display_name,
+                        'display_url' => $photo->display_url,
+                        'full_resolution_url' => $photo->full_resolution_url,
+                        'commons_url' => $photo->commons_url,
+                        'is_featured' => $photo->is_featured,
+                    ];
+                }),
                 'categories' => $monument->categories->pluck('primary_name'),
                 'heritage_status' => $monument->heritage_status,
                 'province' => $monument->province,

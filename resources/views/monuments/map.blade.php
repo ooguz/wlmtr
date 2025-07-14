@@ -80,6 +80,37 @@
             </button>
         </div>
         
+        <!-- Photo Carousel -->
+        <div id="photoCarousel" class="mb-3 hidden">
+            <div class="relative">
+                <div id="carouselContainer" class="overflow-hidden rounded-lg">
+                    <div id="carouselTrack" class="flex transition-transform duration-300 ease-in-out"></div>
+                </div>
+                
+                <!-- Carousel Navigation -->
+                <button id="prevPhoto" class="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white rounded-full p-1 hover:bg-opacity-75">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                </button>
+                <button id="nextPhoto" class="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white rounded-full p-1 hover:bg-opacity-75">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </button>
+                
+                <!-- Photo Info -->
+                <div id="photoInfo" class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white text-xs p-2">
+                    <div id="photoTitle" class="font-semibold"></div>
+                    <div id="photoPhotographer" class="text-gray-300"></div>
+                    <div id="photoLicense" class="text-gray-300"></div>
+                </div>
+            </div>
+            
+            <!-- Carousel Indicators -->
+            <div id="carouselIndicators" class="flex justify-center mt-2 space-x-1"></div>
+        </div>
+        
         <div id="monumentDescription" class="text-sm text-gray-600 mb-3"></div>
         
         <div class="flex items-center justify-between text-sm text-gray-500 mb-3">
@@ -313,6 +344,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const photoCount = document.getElementById('monumentPhotoCount');
         const detailsLink = document.getElementById('monumentDetailsLink');
         const wikidataLink = document.getElementById('monumentWikidataLink');
+        const photoCarousel = document.getElementById('photoCarousel');
+        const carouselTrack = document.getElementById('carouselTrack');
+        const carouselIndicators = document.getElementById('carouselIndicators');
         
         title.textContent = monument.name;
         description.textContent = monument.description || 'Açıklama bulunmuyor.';
@@ -321,8 +355,126 @@ document.addEventListener('DOMContentLoaded', function() {
         detailsLink.href = `/monuments/${monument.id}`;
         wikidataLink.href = `https://www.wikidata.org/wiki/${monument.wikidata_id}`;
         
+        // Handle photo carousel
+        if (monument.photos && monument.photos.length > 0) {
+            setupPhotoCarousel(monument.photos);
+            photoCarousel.classList.remove('hidden');
+        } else {
+            photoCarousel.classList.add('hidden');
+        }
+        
         infoPanel.classList.remove('hidden');
     }
+    
+    // Setup photo carousel
+    function setupPhotoCarousel(photos) {
+        const carouselTrack = document.getElementById('carouselTrack');
+        const carouselIndicators = document.getElementById('carouselIndicators');
+        const photoInfo = document.getElementById('photoInfo');
+        const photoTitle = document.getElementById('photoTitle');
+        const photoPhotographer = document.getElementById('photoPhotographer');
+        const photoLicense = document.getElementById('photoLicense');
+        
+        // Clear previous content
+        carouselTrack.innerHTML = '';
+        carouselIndicators.innerHTML = '';
+        
+        // Add photos to carousel
+        photos.forEach((photo, index) => {
+            const slide = document.createElement('div');
+            slide.className = 'flex-shrink-0 w-full';
+            slide.innerHTML = `
+                <img src="${photo.display_url}" 
+                     alt="${photo.title || 'Monument photo'}" 
+                     class="w-full h-48 object-cover cursor-pointer"
+                     onclick="openPhotoModal('${photo.full_resolution_url}', '${photo.commons_url}')">
+            `;
+            carouselTrack.appendChild(slide);
+            
+            // Add indicator
+            const indicator = document.createElement('button');
+            indicator.className = `w-2 h-2 rounded-full ${index === 0 ? 'bg-blue-600' : 'bg-gray-300'}`;
+            indicator.onclick = () => goToSlide(index);
+            carouselIndicators.appendChild(indicator);
+        });
+        
+        // Set initial photo info
+        if (photos.length > 0) {
+            updatePhotoInfo(photos[0]);
+        }
+        
+        // Store photos for navigation
+        carouselTrack.photos = photos;
+        carouselTrack.currentIndex = 0;
+    }
+    
+    // Update photo info
+    function updatePhotoInfo(photo) {
+        const photoTitle = document.getElementById('photoTitle');
+        const photoPhotographer = document.getElementById('photoPhotographer');
+        const photoLicense = document.getElementById('photoLicense');
+        
+        photoTitle.textContent = photo.title || 'Untitled';
+        photoPhotographer.textContent = photo.photographer ? `by ${photo.photographer}` : '';
+        photoLicense.textContent = photo.license || '';
+    }
+    
+    // Navigate to specific slide
+    function goToSlide(index) {
+        const carouselTrack = document.getElementById('carouselTrack');
+        const indicators = document.querySelectorAll('#carouselIndicators button');
+        
+        carouselTrack.currentIndex = index;
+        carouselTrack.style.transform = `translateX(-${index * 100}%)`;
+        
+        // Update indicators
+        indicators.forEach((indicator, i) => {
+            indicator.className = `w-2 h-2 rounded-full ${i === index ? 'bg-blue-600' : 'bg-gray-300'}`;
+        });
+        
+        // Update photo info
+        if (carouselTrack.photos && carouselTrack.photos[index]) {
+            updatePhotoInfo(carouselTrack.photos[index]);
+        }
+    }
+    
+    // Next photo
+    function nextPhoto() {
+        const carouselTrack = document.getElementById('carouselTrack');
+        if (carouselTrack.photos && carouselTrack.currentIndex < carouselTrack.photos.length - 1) {
+            goToSlide(carouselTrack.currentIndex + 1);
+        }
+    }
+    
+    // Previous photo
+    function prevPhoto() {
+        const carouselTrack = document.getElementById('carouselTrack');
+        if (carouselTrack.photos && carouselTrack.currentIndex > 0) {
+            goToSlide(carouselTrack.currentIndex - 1);
+        }
+    }
+    
+    // Open photo modal
+    function openPhotoModal(imageUrl, commonsUrl) {
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50';
+        modal.innerHTML = `
+            <div class="relative max-w-4xl max-h-full p-4">
+                <button onclick="this.parentElement.parentElement.remove()" class="absolute top-2 right-2 text-white text-2xl">&times;</button>
+                <img src="${imageUrl}" alt="Full size photo" class="max-w-full max-h-full object-contain">
+                <div class="mt-4 text-center">
+                    <a href="${commonsUrl}" target="_blank" class="text-blue-400 hover:text-blue-300">View on Commons</a>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    // Add carousel navigation event listeners
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('nextPhoto').addEventListener('click', nextPhoto);
+        document.getElementById('prevPhoto').addEventListener('click', prevPhoto);
+    });
     
     // Close monument info panel
     document.getElementById('closeInfo').addEventListener('click', function() {
