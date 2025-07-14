@@ -295,4 +295,17 @@ class MonumentController extends Controller
             'categories' => $categories,
         ]);
     }
+
+    /**
+     * API: Get Wikidata label for a Q-code.
+     */
+    public function apiWikidataLabel(string $qcode): JsonResponse
+    {
+        try {
+            $label = \App\Services\WikidataSparqlService::getLabelForQCode($qcode);
+            return response()->json(['label' => $label]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Failed to fetch label'], 500);
+        }
+    }
 }

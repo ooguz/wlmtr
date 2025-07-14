@@ -8,7 +8,7 @@
     <nav class="flex mb-8" aria-label="Breadcrumb">
         <ol class="inline-flex items-center space-x-1 md:space-x-3">
             <li class="inline-flex items-center">
-                <a href="{{ route('monuments.map') }}" class="text-gray-700 hover:text-gray-900">
+                <a href="{{ route('monuments.map') }}" class="text-gray-700 hover:text-gray-900 whitespace-nowrap inline-flex items-center">
                     <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"></path>
                     </svg>
@@ -34,7 +34,7 @@
                     <div id="detailCarouselTrack" class="flex transition-transform duration-300 ease-in-out">
                         @foreach($monument->photos as $photo)
                             <div class="flex-shrink-0 w-full">
-                                <img src="{{ $photo->display_url }}" 
+                                <img src="{{ $photo->full_resolution_url }}" 
                                      alt="{{ $photo->title ?? $monument->primary_name }}"
                                      class="w-full h-96 object-cover cursor-pointer"
                                      onclick="openDetailPhotoModal('{{ $photo->full_resolution_url }}', '{{ $photo->commons_url }}', '{{ $photo->title ?? '' }}', '{{ $photo->photographer ?? '' }}', '{{ $photo->license_display_name ?? '' }}')">
@@ -55,24 +55,27 @@
                 </div>
                 
                 <!-- Carousel Navigation -->
-                <button id="detailPrevPhoto" class="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white rounded-full p-2 hover:bg-opacity-75">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                @if($monument->photos->count() > 1)
+                    <button id="prevDetail" class="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white rounded-full p-2 hover:bg-opacity-75">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
                     </svg>
                 </button>
-                <button id="detailNextPhoto" class="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white rounded-full p-2 hover:bg-opacity-75">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <button id="nextDetail" class="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white rounded-full p-2 hover:bg-opacity-75">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                     </svg>
                 </button>
+                @endif
                 
                 <!-- Carousel Indicators -->
-                <div id="detailCarouselIndicators" class="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+                @if($monument->photos->count() > 1)
+                    <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
                     @foreach($monument->photos as $index => $photo)
-                        <button class="w-3 h-3 rounded-full {{ $index === 0 ? 'bg-white' : 'bg-white bg-opacity-50' }}" 
-                                onclick="goToDetailSlide({{ $index }})"></button>
+                            <button class="w-2 h-2 rounded-full {{ $index === 0 ? 'bg-white' : 'bg-white bg-opacity-50' }} detail-indicator" data-index="{{ $index }}"></button>
                     @endforeach
                 </div>
+                @endif
             </div>
         </div>
     @endif
@@ -94,7 +97,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
                     </svg>
-                    <span>{{ $monument->city ?? $monument->province ?? 'Bilinmeyen konum' }}</span>
+                    <span>{{ \App\Services\WikidataSparqlService::getLabelForQCode($monument->city ?? $monument->province ?? 'Bilinmeyen konum') }}</span>
                     @if($monument->address)
                         <span class="mx-2">•</span>
                         <span>{{ $monument->address }}</span>
@@ -134,9 +137,31 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         @foreach($monument->photos as $photo)
                             <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                                <div class="relative">
                                 <img src="{{ $photo->display_url }}" 
                                      alt="{{ $photo->title ?? $monument->primary_name }}"
                                      class="w-full h-48 object-cover">
+                                    <!-- Photo Info Overlay -->
+                                    <div class="absolute bottom-2 right-2 bg-black bg-opacity-70 text-white text-xs rounded px-2 py-1 flex items-center space-x-2">
+                                        @php
+                                            $author = $photo->photographer;
+                                            $license = $photo->license_display_name;
+                                            $isPublicDomain = Str::contains(strtolower($license), 'public domain') || strtolower($license) === 'cc0';
+                                        @endphp
+                                        @if($isPublicDomain)
+                                            <span>Public domain</span>
+                                        @elseif($author && $license)
+                                            <span>&copy; {{ $author }} | {{ $license }}</span>
+                                        @elseif($author)
+                                            <span>&copy; {{ $author }}</span>
+                                        @elseif($license)
+                                            <span>{{ $license }}</span>
+                                        @endif
+                                        <a href="{{ $photo->commons_url }}" target="_blank" title="Wikimedia Commons" class="ml-1">
+                                            <svg class="w-4 h-4 inline" fill="currentColor" viewBox="0 0 20 20"><path d="M12.293 2.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-8.5 8.5a1 1 0 01-.325.217l-4 1.5a1 1 0 01-1.263-1.263l1.5-4a1 1 0 01.217-.325l8.5-8.5zM15 7l-2-2-8.293 8.293-1.086 2.9 2.9-1.086L15 7z"></path></svg>
+                                        </a>
+                                    </div>
+                                </div>
                                 <div class="p-4">
                                     @if($photo->title)
                                         <h3 class="font-semibold text-gray-900 mb-2">{{ $photo->title }}</h3>
@@ -219,14 +244,27 @@
                     @if($monument->province)
                         <div>
                             <dt class="text-sm font-medium text-gray-500">İl</dt>
-                            <dd class="mt-1 text-sm text-gray-900">{{ $monument->province }}</dd>
+                            <dd class="mt-1 text-sm text-gray-900">
+                                {{ \App\Services\WikidataSparqlService::getLabelForQCode($monument->province) }}
+                            </dd>
                         </div>
                     @endif
                     
                     @if($monument->city)
                         <div>
                             <dt class="text-sm font-medium text-gray-500">Şehir</dt>
-                            <dd class="mt-1 text-sm text-gray-900">{{ $monument->city }}</dd>
+                            <dd class="mt-1 text-sm text-gray-900">
+                                {{ \App\Services\WikidataSparqlService::getLabelForQCode($monument->city) }}
+                            </dd>
+                        </div>
+                    @endif
+                    
+                    @if($monument->district)
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">İlçe</dt>
+                            <dd class="mt-1 text-sm text-gray-900">
+                                {{ \App\Services\WikidataSparqlService::getLabelForQCode($monument->district) }}
+                            </dd>
                         </div>
                     @endif
                 </dl>
@@ -261,14 +299,25 @@
                         </a>
                     @endif
                     
-                    @if($monument->wikipedia_url)
-                        <a href="{{ $monument->wikipedia_url }}" 
+                    @if($monument->wikipedia_tr_url)
+                        <a href="{{ $monument->wikipedia_tr_url }}" 
                            target="_blank"
                            class="flex items-center text-blue-600 hover:text-blue-800">
                             <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"></path>
                             </svg>
-                            Wikipedia
+                            Wikipedia (TR)
+                        </a>
+                    @endif
+                    
+                    @if($monument->wikipedia_en_url)
+                        <a href="{{ $monument->wikipedia_en_url }}" 
+                           target="_blank"
+                           class="flex items-center text-blue-600 hover:text-blue-800">
+                            <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                            </svg>
+                            Wikipedia (EN)
                         </a>
                     @endif
                     
@@ -295,7 +344,7 @@
         const map = L.map('map').setView([{{ $monument->latitude }}, {{ $monument->longitude }}], 15);
         
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
+            attribution: '© OpenStreetMap contributors | © <a href="https://leafletjs.com/" target="_blank">Leaflet</a> | <a href="https://commons.wikimedia.org/wiki/Category:Wiki_Loves_Monuments_Turkey" target="_blank">Wikimedia Commons</a> | Made with ❤️ by <a href="https://github.com/m3rcury" target="_blank">m3rcury</a>'
         }).addTo(map);
         
         L.marker([{{ $monument->latitude }}, {{ $monument->longitude }}], {
@@ -311,37 +360,52 @@
     @endpush
 @endif
 
-@if($monument->photos->count() > 0)
     @push('scripts')
     <script>
-    // Detail page carousel functionality
-    let currentDetailSlide = 0;
-    const totalDetailSlides = {{ $monument->photos->count() }};
-    
-    function goToDetailSlide(index) {
-        const track = document.getElementById('detailCarouselTrack');
-        const indicators = document.querySelectorAll('#detailCarouselIndicators button');
-        
-        currentDetailSlide = index;
-        track.style.transform = `translateX(-${index * 100}%)`;
+    document.addEventListener('DOMContentLoaded', function() {
+        const carousel = document.getElementById('detailCarouselTrack');
+        const indicators = document.querySelectorAll('.detail-indicator');
+        const prevBtn = document.getElementById('prevDetail');
+        const nextBtn = document.getElementById('nextDetail');
+        let currentIndex = 0;
+        const totalSlides = {{ $monument->photos->count() }};
+
+        function updateCarousel() {
+            carousel.style.transform = `translateX(-${currentIndex * 100}%)`;
         
         // Update indicators
-        indicators.forEach((indicator, i) => {
-            indicator.className = `w-3 h-3 rounded-full ${i === index ? 'bg-white' : 'bg-white bg-opacity-50'}`;
+            indicators.forEach((indicator, index) => {
+                indicator.classList.toggle('bg-white', index === currentIndex);
+                indicator.classList.toggle('bg-opacity-50', index !== currentIndex);
         });
     }
     
-    function nextDetailSlide() {
-        if (currentDetailSlide < totalDetailSlides - 1) {
-            goToDetailSlide(currentDetailSlide + 1);
+        function nextSlide() {
+            currentIndex = (currentIndex + 1) % totalSlides;
+            updateCarousel();
         }
-    }
-    
-    function prevDetailSlide() {
-        if (currentDetailSlide > 0) {
-            goToDetailSlide(currentDetailSlide - 1);
+
+        function prevSlide() {
+            currentIndex = (currentIndex - 1 + totalSlides) % totalSlides;
+            updateCarousel();
         }
-    }
+
+        // Event listeners
+        if (nextBtn) nextBtn.addEventListener('click', nextSlide);
+        if (prevBtn) prevBtn.addEventListener('click', prevSlide);
+        
+        indicators.forEach((indicator, index) => {
+            indicator.addEventListener('click', () => {
+                currentIndex = index;
+                updateCarousel();
+            });
+        });
+
+        // Auto-advance carousel
+        if (totalSlides > 1) {
+            setInterval(nextSlide, 5000);
+        }
+    });
     
     function openDetailPhotoModal(imageUrl, commonsUrl, title, photographer, license) {
         const modal = document.createElement('div');
@@ -369,13 +433,6 @@
         `;
         document.body.appendChild(modal);
     }
-    
-    // Add event listeners
-    document.addEventListener('DOMContentLoaded', function() {
-        document.getElementById('detailNextPhoto').addEventListener('click', nextDetailSlide);
-        document.getElementById('detailPrevPhoto').addEventListener('click', prevDetailSlide);
-    });
     </script>
     @endpush
-@endif
 @endsection 

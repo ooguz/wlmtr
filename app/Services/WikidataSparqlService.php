@@ -54,7 +54,7 @@ class WikidataSparqlService
     private function buildMonumentsQuery(): string
     {
         return '
-        SELECT DISTINCT ?place ?placeLabel ?coordinates ?description ?heritageStatus ?constructionDate ?architect ?style ?material ?address ?city ?district ?province ?commonsCategory ?wikipediaUrl ?commonsUrl WHERE {
+        SELECT DISTINCT ?place ?placeLabel ?coordinates ?description ?heritageStatus ?heritageStatusLabel ?constructionDate ?architect ?architectLabel ?style ?styleLabel ?material ?materialLabel ?address ?city ?cityLabel ?district ?districtLabel ?province ?provinceLabel ?commonsCategory ?wikipediaUrl ?commonsUrl WHERE {
           ?place wdt:P17 wd:Q43; # Country (P17) Turkey (Q43)
                  wdt:P11729 _:dummy. # P11729 property must exist (monument status)
           
@@ -74,7 +74,7 @@ class WikidataSparqlService
           OPTIONAL { ?place wdt:P373 ?commonsUrl. } # Commons category
           
           SERVICE wikibase:label { 
-            bd:serviceParam wikibase:language "[AUTO_LANGUAGE],tr,en". 
+            bd:serviceParam wikibase:language "tr,en,tr,en". 
           }
         }
         LIMIT 1000
@@ -125,15 +125,15 @@ class WikidataSparqlService
             'description_tr' => $binding['description']['value'] ?? null,
             'latitude' => $coordinates['lat'] ?? null,
             'longitude' => $coordinates['lng'] ?? null,
-            'heritage_status' => $this->extractWikidataId($binding['heritageStatus']['value'] ?? null),
+            'heritage_status' => $this->cleanLabel($binding['heritageStatusLabel']['value'] ?? null) ?? $this->extractWikidataId($binding['heritageStatus']['value'] ?? null),
             'construction_date' => $binding['constructionDate']['value'] ?? null,
-            'architect' => $this->extractWikidataId($binding['architect']['value'] ?? null),
-            'style' => $this->extractWikidataId($binding['style']['value'] ?? null),
-            'material' => $this->extractWikidataId($binding['material']['value'] ?? null),
+            'architect' => $this->cleanLabel($binding['architectLabel']['value'] ?? null) ?? $this->extractWikidataId($binding['architect']['value'] ?? null),
+            'style' => $this->cleanLabel($binding['styleLabel']['value'] ?? null) ?? $this->extractWikidataId($binding['style']['value'] ?? null),
+            'material' => $this->cleanLabel($binding['materialLabel']['value'] ?? null) ?? $this->extractWikidataId($binding['material']['value'] ?? null),
             'address' => $binding['address']['value'] ?? null,
-            'city' => $binding['city']['value'] ?? null,
-            'district' => $binding['district']['value'] ?? null,
-            'province' => $binding['province']['value'] ?? null,
+            'city' => $this->cleanLabel($binding['cityLabel']['value'] ?? null) ?? $this->extractWikidataId($binding['city']['value'] ?? null),
+            'district' => $this->cleanLabel($binding['districtLabel']['value'] ?? null) ?? $this->extractWikidataId($binding['district']['value'] ?? null),
+            'province' => $this->cleanLabel($binding['provinceLabel']['value'] ?? null) ?? $this->extractWikidataId($binding['province']['value'] ?? null),
             'commons_category' => $binding['commonsCategory']['value'] ?? null,
             'wikipedia_url' => $binding['wikipediaUrl']['value'] ?? null,
             'commons_url' => $binding['commonsUrl']['value'] ?? null,
@@ -155,6 +155,23 @@ class WikidataSparqlService
         }
 
         return null;
+    }
+
+    /**
+     * Clean label by removing URI prefixes and returning null if it's still a URI.
+     */
+    private function cleanLabel(?string $label): ?string
+    {
+        if (!$label) {
+            return null;
+        }
+
+        // If it's still a URI, return null so we can fall back to Wikidata ID
+        if (str_starts_with($label, 'http://') || str_starts_with($label, 'https://')) {
+            return null;
+        }
+
+        return $label;
     }
 
     /**
@@ -283,5 +300,45 @@ class WikidataSparqlService
         }
 
         return $details;
+    }
+
+    /**
+     * Fetch a human-readable label for a Wikidata Q-code (e.g., Q406).
+     * Uses a static cache to avoid repeated lookups.
+     */
+    public static function getLabelForQCode(string $qcode): ?string
+    {
+        static $labelCache = [];
+        if (isset($labelCache[$qcode])) {
+            return $labelCache[$qcode];
+        }
+        if (!preg_match('/^Q\\d+$/', $qcode)) {
+            return $qcode; // Not a Q-code, return as is
+        }
+        $url = "https://www.wikidata.org/wiki/Special:EntityData/{$qcode}.json";
+        try {
+            $response = \Illuminate\Support\Facades\Http::timeout(5)->get($url);
+            if ($response->successful()) {
+                $data = $response->json();
+                $entity = $data['entities'][$qcode] ?? null;
+                if ($entity && isset($entity['labels'])) {
+                    // Prefer Turkish, then English, then any
+                    $labels = $entity['labels'];
+                    if (isset($labels['tr'])) {
+                        $label = $labels['tr']['value'];
+                    } elseif (isset($labels['en'])) {
+                        $label = $labels['en']['value'];
+                    } else {
+                        $label = reset($labels)['value'] ?? $qcode;
+                    }
+                    $labelCache[$qcode] = $label;
+                    return $label;
+                }
+            }
+        } catch (\Exception $e) {
+            // Ignore errors, fallback to Q-code
+        }
+        $labelCache[$qcode] = $qcode;
+        return $qcode;
     }
 } 

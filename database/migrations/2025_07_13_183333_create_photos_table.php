@@ -23,6 +23,7 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->string('photographer')->nullable();
             $table->string('license')->nullable();
+            $table->string('license_shortname')->nullable();
             $table->date('date_taken')->nullable();
             $table->string('camera_model')->nullable();
             $table->json('exif_data')->nullable();

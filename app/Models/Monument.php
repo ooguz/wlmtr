@@ -110,6 +110,52 @@ class Monument extends Model
     }
 
     /**
+     * Get Wikipedia Turkish URL.
+     */
+    public function getWikipediaTrUrlAttribute(): ?string
+    {
+        if (!$this->wikidata_id) {
+            return null;
+        }
+        
+        // Try to get the Turkish Wikipedia page from Wikidata properties
+        if (isset($this->properties['sitelinks']['trwiki']['url'])) {
+            return $this->properties['sitelinks']['trwiki']['url'];
+        }
+        
+        // Fallback: construct URL using Turkish name
+        if ($this->name_tr) {
+            $title = str_replace(' ', '_', $this->name_tr);
+            return "https://tr.wikipedia.org/wiki/{$title}";
+        }
+        
+        return null;
+    }
+
+    /**
+     * Get Wikipedia English URL.
+     */
+    public function getWikipediaEnUrlAttribute(): ?string
+    {
+        if (!$this->wikidata_id) {
+            return null;
+        }
+        
+        // Try to get the English Wikipedia page from Wikidata properties
+        if (isset($this->properties['sitelinks']['enwiki']['url'])) {
+            return $this->properties['sitelinks']['enwiki']['url'];
+        }
+        
+        // Fallback: construct URL using English name
+        if ($this->name_en) {
+            $title = str_replace(' ', '_', $this->name_en);
+            return "https://en.wikipedia.org/wiki/{$title}";
+        }
+        
+        return null;
+    }
+
+    /**
      * Scope to filter monuments with photos.
      */
     public function scopeWithPhotos($query)

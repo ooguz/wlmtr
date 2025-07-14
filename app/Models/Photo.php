@@ -19,6 +19,7 @@ class Photo extends Model
         'description',
         'photographer',
         'license',
+        'license_shortname',
         'date_taken',
         'camera_model',
         'exif_data',
@@ -112,6 +113,9 @@ class Photo extends Model
      */
     public function getLicenseDisplayNameAttribute(): string
     {
+        if ($this->license_shortname) {
+            return $this->license_shortname;
+        }
         return match($this->license) {
             'cc-by-sa-4.0' => 'CC BY-SA 4.0',
             'cc-by-sa-3.0' => 'CC BY-SA 3.0',

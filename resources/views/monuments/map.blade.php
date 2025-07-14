@@ -99,12 +99,7 @@
                     </svg>
                 </button>
                 
-                <!-- Photo Info -->
-                <div id="photoInfo" class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white text-xs p-2">
-                    <div id="photoTitle" class="font-semibold"></div>
-                    <div id="photoPhotographer" class="text-gray-300"></div>
-                    <div id="photoLicense" class="text-gray-300"></div>
-                </div>
+
             </div>
             
             <!-- Carousel Indicators -->
@@ -114,7 +109,13 @@
         <div id="monumentDescription" class="text-sm text-gray-600 mb-3"></div>
         
         <div class="flex items-center justify-between text-sm text-gray-500 mb-3">
-            <span id="monumentProvince"></span>
+            <div class="flex items-center">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+                <span id="monumentProvince"></span>
+            </div>
             <span id="monumentPhotoCount"></span>
         </div>
         
@@ -150,7 +151,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Add OpenStreetMap tiles
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
+        attribution: '© OpenStreetMap contributors | © <a href="https://leafletjs.com/" target="_blank">Leaflet</a> | <a href="https://commons.wikimedia.org/wiki/Category:Wiki_Loves_Monuments_Turkey" target="_blank">Wikimedia Commons</a> | Made with ❤️ by <a href="https://github.com/m3rcury" target="_blank">m3rcury</a>'
     }).addTo(map);
     
     // Store markers
@@ -315,6 +316,28 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => {
                 console.error('Error loading monuments:', error);
             });
+        }
+    
+    // Get province name from Wikidata
+    function getProvinceName(provinceCode) {
+        if (!provinceCode) {
+            return Promise.resolve('Bilinmeyen konum');
+        }
+        
+        return fetch(`/api/wikidata/label/${encodeURIComponent(provinceCode)}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to fetch province name');
+                }
+                return response.json();
+            })
+            .then(data => {
+                return data.label || provinceCode;
+            })
+            .catch(error => {
+                console.error('Error fetching province name:', error);
+                return provinceCode; // Fallback to original code
+            });
     }
     
     // Load provinces for filter
@@ -350,7 +373,14 @@ document.addEventListener('DOMContentLoaded', function() {
         
         title.textContent = monument.name;
         description.textContent = monument.description || 'Açıklama bulunmuyor.';
-        province.textContent = monument.province;
+        
+        // Get province name using Wikidata service
+        getProvinceName(monument.province).then(provinceName => {
+            province.textContent = provinceName;
+        }).catch(() => {
+            province.textContent = monument.province; // Fallback to raw value
+        });
+        
         photoCount.textContent = `${monument.photo_count} fotoğraf`;
         detailsLink.href = `/monuments/${monument.id}`;
         wikidataLink.href = `https://www.wikidata.org/wiki/${monument.wikidata_id}`;
@@ -370,10 +400,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function setupPhotoCarousel(photos) {
         const carouselTrack = document.getElementById('carouselTrack');
         const carouselIndicators = document.getElementById('carouselIndicators');
-        const photoInfo = document.getElementById('photoInfo');
-        const photoTitle = document.getElementById('photoTitle');
-        const photoPhotographer = document.getElementById('photoPhotographer');
-        const photoLicense = document.getElementById('photoLicense');
         
         // Clear previous content
         carouselTrack.innerHTML = '';
@@ -381,13 +407,28 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Add photos to carousel
         photos.forEach((photo, index) => {
+            // Overlay logic
+            let author = photo.photographer;
+            let license = photo.license;
+            let isPublicDomain = (license && (license.toLowerCase().includes('public domain') || license.toLowerCase() === 'cc0'));
+            let overlayText = '';
+            if (isPublicDomain) {
+                overlayText = 'Public domain';
+            } else if (author && license) {
+                overlayText = `&copy; ${author} | ${license}`;
+            } else if (author) {
+                overlayText = `&copy; ${author}`;
+            } else if (license) {
+                overlayText = license;
+            }
+            let commonsLink = photo.commons_url ? `<a href="${photo.commons_url}" target="_blank" class="photo-overlay" style="position:absolute;bottom:0.4em;right:0.4em;pointer-events:auto;">${overlayText}</a>` : '';
             const slide = document.createElement('div');
-            slide.className = 'flex-shrink-0 w-full';
+            slide.className = 'flex-shrink-0 w-full relative';
             slide.innerHTML = `
-                <img src="${photo.display_url}" 
+                <img src="${photo.full_resolution_url}" 
                      alt="${photo.title || 'Monument photo'}" 
-                     class="w-full h-48 object-cover cursor-pointer"
-                     onclick="openPhotoModal('${photo.full_resolution_url}', '${photo.commons_url}')">
+                     class="w-full h-48 object-cover cursor-pointer">
+                ${commonsLink}
             `;
             carouselTrack.appendChild(slide);
             
@@ -398,31 +439,21 @@ document.addEventListener('DOMContentLoaded', function() {
             carouselIndicators.appendChild(indicator);
         });
         
-        // Set initial photo info
-        if (photos.length > 0) {
-            updatePhotoInfo(photos[0]);
-        }
+
         
         // Store photos for navigation
         carouselTrack.photos = photos;
         carouselTrack.currentIndex = 0;
     }
     
-    // Update photo info
-    function updatePhotoInfo(photo) {
-        const photoTitle = document.getElementById('photoTitle');
-        const photoPhotographer = document.getElementById('photoPhotographer');
-        const photoLicense = document.getElementById('photoLicense');
-        
-        photoTitle.textContent = photo.title || 'Untitled';
-        photoPhotographer.textContent = photo.photographer ? `by ${photo.photographer}` : '';
-        photoLicense.textContent = photo.license || '';
-    }
+
     
     // Navigate to specific slide
     function goToSlide(index) {
         const carouselTrack = document.getElementById('carouselTrack');
         const indicators = document.querySelectorAll('#carouselIndicators button');
+        
+        if (index < 0 || index >= carouselTrack.photos.length) return;
         
         carouselTrack.currentIndex = index;
         carouselTrack.style.transform = `translateX(-${index * 100}%)`;
@@ -432,10 +463,7 @@ document.addEventListener('DOMContentLoaded', function() {
             indicator.className = `w-2 h-2 rounded-full ${i === index ? 'bg-blue-600' : 'bg-gray-300'}`;
         });
         
-        // Update photo info
-        if (carouselTrack.photos && carouselTrack.photos[index]) {
-            updatePhotoInfo(carouselTrack.photos[index]);
-        }
+
     }
     
     // Next photo
@@ -455,14 +483,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Open photo modal
-    function openPhotoModal(imageUrl, commonsUrl) {
+    function openPhotoModal(imageUrl, commonsUrl, title, photographer, license) {
         const modal = document.createElement('div');
         modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50';
         modal.innerHTML = `
             <div class="relative max-w-4xl max-h-full p-4">
                 <button onclick="this.parentElement.parentElement.remove()" class="absolute top-2 right-2 text-white text-2xl">&times;</button>
-                <img src="${imageUrl}" alt="Full size photo" class="max-w-full max-h-full object-contain">
-                <div class="mt-4 text-center">
+                <img src="${imageUrl}" alt="${title || 'Full size photo'}" class="max-w-full max-h-full object-contain">
+                <div class="mt-4 text-center text-white">
+                    ${title ? `<h3 class="text-xl font-semibold mb-2">${title}</h3>` : ''}
+                    ${photographer ? `<p class="text-gray-300 mb-2">by ${photographer}</p>` : ''}
+                    ${license ? `<p class="text-sm text-gray-400 mb-4">${license}</p>` : ''}
                     <a href="${commonsUrl}" target="_blank" class="text-blue-400 hover:text-blue-300">View on Commons</a>
                 </div>
             </div>
@@ -503,6 +534,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .leaflet-control-attribution {
     z-index: 1000 !important;
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+    background: rgba(255, 255, 255, 0.8) !important;
+    padding: 4px 8px !important;
+    border-radius: 4px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+}
+
+.leaflet-control-attribution a {
+    color: #0066cc !important;
+    text-decoration: none !important;
+}
+
+.leaflet-control-attribution a:hover {
+    text-decoration: underline !important;
 }
 
 /* Prevent panels from being hidden during map zoom */
@@ -523,6 +569,27 @@ document.addEventListener('DOMContentLoaded', function() {
         z-index: 3000 !important;
         border-radius: 0 !important;
     }
+}
+
+.photo-overlay {
+    background: rgba(0,0,0,0.55) !important;
+    color: #fff !important;
+    font-size: 0.72em !important;
+    font-weight: 500 !important;
+    border-radius: 0.35em !important;
+    padding: 0.18em 0.6em !important;
+    margin-bottom: 0 !important;
+    margin-right: 0 !important;
+    text-decoration: underline dotted #fff2;
+    transition: background 0.2s;
+    box-shadow: none !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    z-index: 10 !important;
+    display: inline-block !important;
+}
+.photo-overlay:hover {
+    background: rgba(0,0,0,0.75) !important;
+    color: #ffe !important;
 }
 </style>
 @endpush 

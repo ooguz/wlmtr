@@ -44,6 +44,8 @@ class WikimediaCommonsService
             'srsearch' => "haswbstatement:P180={$wikidataId}",
             'srnamespace' => 6, // File namespace
             'srlimit' => 50,
+            'prop' => 'imageinfo',
+            'iiprop' => 'url|size|mime',
         ];
 
         try {
@@ -76,6 +78,7 @@ class WikimediaCommonsService
             return [];
         }
 
+        // First, get the list of files in the category
         $query = [
             'action' => 'query',
             'format' => 'json',
@@ -115,11 +118,17 @@ class WikimediaCommonsService
             return $photos;
         }
 
+        // Get the list of files first
+        $files = [];
         foreach ($data['query']['search'] as $result) {
-            $photo = $this->processCommonsPhoto($result);
-            if ($photo) {
-                $photos[] = $photo;
+            if (str_starts_with($result['title'], 'File:')) {
+                $files[] = $result['title'];
             }
+        }
+
+        // Now fetch image info for all files in one API call
+        if (!empty($files)) {
+            $photos = $this->fetchImageInfoForFiles($files);
         }
 
         return $photos;
@@ -136,14 +145,108 @@ class WikimediaCommonsService
             return $photos;
         }
 
+        // Get the list of files first
+        $files = [];
         foreach ($data['query']['categorymembers'] as $member) {
-            $photo = $this->processCommonsPhoto($member);
-            if ($photo) {
-                $photos[] = $photo;
+            if (str_starts_with($member['title'], 'File:')) {
+                $files[] = $member['title'];
             }
         }
 
+        // Now fetch image info for all files in one API call
+        if (!empty($files)) {
+            $photos = $this->fetchImageInfoForFiles($files);
+        }
+
         return $photos;
+    }
+
+    /**
+     * Fetch image info for multiple files.
+     */
+    public function fetchImageInfoForFiles(array $files): array
+    {
+        $photos = [];
+        $titles = implode('|', $files);
+        
+        $query = [
+            'action' => 'query',
+            'format' => 'json',
+            'titles' => $titles,
+            'prop' => 'imageinfo',
+            'iiprop' => 'url|size|mime|extmetadata',
+        ];
+
+        try {
+            $response = Http::withHeaders([
+                'User-Agent' => self::USER_AGENT,
+            ])->get(self::COMMONS_API_ENDPOINT, $query);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                if (isset($data['query']['pages'])) {
+                    foreach ($data['query']['pages'] as $page) {
+                        $photo = $this->processCommonsPhotoWithImageInfo($page);
+                        if ($photo) {
+                            $photos[] = $photo;
+                        }
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch image info for files', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return $photos;
+    }
+
+    /**
+     * Process a single Commons photo with image info.
+     */
+    private function processCommonsPhotoWithImageInfo(array $page): ?array
+    {
+        $title = $page['title'] ?? null;
+        if (!$title || !str_starts_with($title, 'File:')) {
+            return null;
+        }
+
+        $filename = str_replace('File:', '', $title);
+        
+        // Get the actual file URL from the API response
+        $originalUrl = null;
+        if (isset($page['imageinfo'][0]['url'])) {
+            $originalUrl = $page['imageinfo'][0]['url'];
+        } else {
+            // Fallback to constructed URL
+            $originalUrl = $this->buildOriginalUrl($filename);
+        }
+
+        // Get extmetadata
+        $extmetadata = $page['imageinfo'][0]['extmetadata'] ?? [];
+        $author = $extmetadata['Artist']['value'] ?? null;
+        $licenseShortName = $extmetadata['LicenseShortName']['value'] ?? null;
+        $license = $extmetadata['License']['value'] ?? null;
+
+        // Clean up author (strip HTML if present)
+        if ($author) {
+            $author = strip_tags($author);
+        }
+        
+        return [
+            'commons_filename' => $filename,
+            'commons_url' => "https://commons.wikimedia.org/wiki/{$title}",
+            'thumbnail_url' => $this->buildThumbnailUrl($filename),
+            'original_url' => $originalUrl,
+            'title' => $filename,
+            'description' => null,
+            'photographer' => $author,
+            'license' => $license,
+            'license_shortname' => $licenseShortName,
+            'is_featured' => false,
+            'is_uploaded_via_app' => false,
+        ];
     }
 
     /**
@@ -158,11 +261,20 @@ class WikimediaCommonsService
 
         $filename = str_replace('File:', '', $title);
         
+        // Get the actual file URL from the API response
+        $originalUrl = null;
+        if (isset($result['imageinfo'][0]['url'])) {
+            $originalUrl = $result['imageinfo'][0]['url'];
+        } else {
+            // Fallback to constructed URL
+            $originalUrl = $this->buildOriginalUrl($filename);
+        }
+        
         return [
             'commons_filename' => $filename,
             'commons_url' => "https://commons.wikimedia.org/wiki/{$title}",
             'thumbnail_url' => $this->buildThumbnailUrl($filename),
-            'original_url' => $this->buildOriginalUrl($filename),
+            'original_url' => $originalUrl,
             'title' => $filename,
             'description' => null,
             'photographer' => null,
@@ -175,18 +287,54 @@ class WikimediaCommonsService
     /**
      * Build thumbnail URL for a Commons file.
      */
-    private function buildThumbnailUrl(string $filename): string
+    public function buildThumbnailUrl(string $filename): string
     {
-        $encodedFilename = urlencode($filename);
+        $filename = str_replace(' ', '_', $filename);
+        $encodedFilename = rawurlencode($filename);
         return "https://commons.wikimedia.org/w/thumb.php?f={$encodedFilename}&width=300";
     }
 
     /**
      * Build original URL for a Commons file.
+     * Note: This is a fallback method. The actual URL should come from the API response.
      */
-    private function buildOriginalUrl(string $filename): string
+    public function buildOriginalUrl(string $filename): string
     {
-        $encodedFilename = urlencode($filename);
+        // Use the Commons API to get the actual file URL
+        $apiUrl = "https://commons.wikimedia.org/w/api.php";
+        $params = [
+            'action' => 'query',
+            'titles' => "File:{$filename}",
+            'prop' => 'imageinfo',
+            'iiprop' => 'url',
+            'format' => 'json'
+        ];
+        
+        try {
+            $response = Http::withHeaders([
+                'User-Agent' => self::USER_AGENT,
+            ])->get($apiUrl, $params);
+            
+            if ($response->successful()) {
+                $data = $response->json();
+                if (isset($data['query']['pages'])) {
+                    foreach ($data['query']['pages'] as $page) {
+                        if (isset($page['imageinfo'][0]['url'])) {
+                            return $page['imageinfo'][0]['url'];
+                        }
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to get original URL for file', [
+                'filename' => $filename,
+                'error' => $e->getMessage(),
+            ]);
+        }
+        
+        // Fallback to constructed URL (may not work for all files)
+        $filename = str_replace(' ', '_', $filename);
+        $encodedFilename = rawurlencode($filename);
         return "https://upload.wikimedia.org/wikipedia/commons/{$encodedFilename}";
     }
 

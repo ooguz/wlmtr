@@ -44,7 +44,7 @@
                     <option value="">Tüm kategoriler</option>
                     @foreach($categories as $category)
                         <option value="{{ $category->id }}" {{ request('category') == $category->id ? 'selected' : '' }}>
-                            {{ $category->primary_name }} ({{ $category->monument_count }})
+                            {{ $category->primary_name }}
                         </option>
                     @endforeach
                 </select>
@@ -55,8 +55,8 @@
                 <label for="has_photos" class="block text-sm font-medium text-gray-700 mb-1">Fotoğraf Durumu</label>
                 <select name="has_photos" id="has_photos" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="">Tümü</option>
-                    <option value="1" {{ request('has_photos') === '1' ? 'selected' : '' }}>Fotoğraflı</option>
-                    <option value="0" {{ request('has_photos') === '0' ? 'selected' : '' }}>Fotoğrafsız</option>
+                    <option value="1" {{ request('has_photos') == '1' ? 'selected' : '' }}>Fotoğraflı</option>
+                    <option value="0" {{ request('has_photos') == '0' ? 'selected' : '' }}>Fotoğrafsız</option>
                 </select>
             </div>
             
@@ -79,11 +79,31 @@
         @foreach($monuments as $monument)
             <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                 <!-- Image -->
-                <div class="aspect-w-16 aspect-h-9 bg-gray-200">
+                <div class="aspect-w-16 aspect-h-9 bg-gray-200 relative">
                     @if($monument->featured_photo)
                         <img src="{{ $monument->featured_photo->display_url }}" 
                              alt="{{ $monument->primary_name }}"
                              class="w-full h-48 object-cover">
+                        <!-- Photo Info Overlay -->
+                        <div class="absolute bottom-2 right-2 bg-black bg-opacity-70 text-white text-xs rounded px-2 py-1 flex items-center space-x-2">
+                            @php
+                                $author = $monument->featured_photo->photographer;
+                                $license = $monument->featured_photo->license_display_name;
+                                $isPublicDomain = Str::contains(strtolower($license), 'public domain') || strtolower($license) === 'cc0';
+                            @endphp
+                            @if($isPublicDomain)
+                                <span>Public domain</span>
+                            @elseif($author && $license)
+                                <span>&copy; {{ $author }} | {{ $license }}</span>
+                            @elseif($author)
+                                <span>&copy; {{ $author }}</span>
+                            @elseif($license)
+                                <span>{{ $license }}</span>
+                            @endif
+                            <a href="{{ $monument->featured_photo->commons_url }}" target="_blank" title="Wikimedia Commons" class="ml-1">
+                                <svg class="w-4 h-4 inline" fill="currentColor" viewBox="0 0 20 20"><path d="M12.293 2.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-8.5 8.5a1 1 0 01-.325.217l-4 1.5a1 1 0 01-1.263-1.263l1.5-4a1 1 0 01.217-.325l8.5-8.5zM15 7l-2-2-8.293 8.293-1.086 2.9 2.9-1.086L15 7z"></path></svg>
+                            </a>
+                        </div>
                     @else
                         <div class="w-full h-48 bg-gray-200 flex items-center justify-center">
                             <span class="text-gray-400">Fotoğraf yok</span>
@@ -111,7 +131,11 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
                         </svg>
-                        <span>{{ $monument->city ?? $monument->province ?? 'Bilinmeyen konum' }}</span>
+                        <span>
+                            {{ $monument->city ?? $monument->province ?? 'Bilinmeyen konum' }}
+                            ({{ \App\Services\WikidataSparqlService::getLabelForQCode($monument->city ?? $monument->province ?? 'Bilinmeyen konum') }})
+                        </span>
+                        <span>Test: {{ \App\Services\WikidataSparqlService::getLabelForQCode('Q406') }}</span>
                     </div>
                     
                     <!-- Photo count -->

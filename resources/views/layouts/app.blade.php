@@ -17,6 +17,27 @@
     <!-- Leaflet CSS for maps -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
+    <!-- Leaflet Attribution Styles -->
+    <style>
+    .leaflet-control-attribution {
+        font-size: 11px !important;
+        line-height: 1.4 !important;
+        background: rgba(255, 255, 255, 0.8) !important;
+        padding: 4px 8px !important;
+        border-radius: 4px !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+    }
+
+    .leaflet-control-attribution a {
+        color: #0066cc !important;
+        text-decoration: none !important;
+    }
+
+    .leaflet-control-attribution a:hover {
+        text-decoration: underline !important;
+    }
+    </style>
+    
     <!-- Additional styles -->
     @stack('styles')
 </head>
@@ -179,6 +200,29 @@
                             Wikidata
                         </a>
                     </p>
+                    <div class="mt-4 pt-4 border-t border-gray-200">
+                        <p class="text-xs text-gray-400">
+                            Made with ❤️ by 
+                            <a href="https://github.com/ooguz" 
+                               class="text-blue-600 hover:text-blue-800 font-medium" 
+                               target="_blank">
+                                Magurale (ooguz)
+                            </a>
+                            <span class="mx-2">•</span>
+                            <a href="https://github.com/ooguz/wlmtr" 
+                               class="text-blue-600 hover:text-blue-800" 
+                               target="_blank">
+                                GitHub
+                            </a>
+                            <span class="mx-2">•</span>
+                            <a href="https://buymeacoffee.com/ooguz" 
+                               class="text-blue-600 hover:text-blue-800" 
+                               target="_blank">
+                                ☕ Buy Me a Coffee
+                            </a>
+                        </p>
+                    </div>
+
                 </div>
             </div>
         </footer>
