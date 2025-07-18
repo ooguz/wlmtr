@@ -5,7 +5,7 @@
 @section('content')
 <div class="relative h-[calc(100vh-4rem)]">
     <!-- Map Container -->
-    <div id="map" class="w-full h-full"></div>
+    <div id="map" class="w-full h-[calc(100vh-4rem)]"></div>
     
     <!-- Search Panel -->
     <div id="searchPanel" class="absolute top-4 left-4 z-20 bg-white rounded-lg shadow-lg p-4 w-80 max-h-[calc(100vh-8rem)] overflow-y-auto">
@@ -142,6 +142,7 @@
         </svg>
     </button>
 </div>
+@endsection
 
 @push('scripts')
 <script>
@@ -283,8 +284,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load monuments from API
     function loadMonuments() {
         fetch('/api/monuments/map-markers')
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('API response not ok: ' + response.status);
+                }
+                return response.json();
+            })
             .then(data => {
+                
                 // Clear existing markers
                 markers.forEach(marker => marker.remove());
                 markers = [];
