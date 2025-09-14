@@ -1,11 +1,11 @@
-@extends('layouts.app')
+@extends('layouts.map')
 
 @section('title', 'Anıt Haritası')
 
 @section('content')
-<div class="relative h-[calc(100vh-4rem)]">
+<div class="fixed inset-0">
     <!-- Map Container -->
-    <div id="map" class="w-full h-[calc(100vh-4rem)]"></div>
+    <div id="map" class="w-full h-full"></div>
     
     <!-- Search Panel -->
     <div id="searchPanel" class="absolute top-4 left-4 z-20 bg-white rounded-lg shadow-lg p-4 w-80 max-h-[calc(100vh-8rem)] overflow-y-auto">
@@ -68,9 +68,43 @@
             Kapat
         </button>
     </div>
+
+    <!-- Floating Nav Cards -->
+    <div class="floating-nav-cards absolute top-4 right-4 z-30 flex flex-col gap-3">
+        <a href="{{ route('monuments.list') }}" class="bg-white/90 backdrop-blur rounded-xl shadow-md px-4 py-3 hover:bg-white">
+            <div class="flex items-center gap-2">
+                <span>📃</span>
+                <div>
+                    <div class="text-sm font-semibold">Liste</div>
+                    <div class="text-xs text-gray-500">Tüm anıtları görüntüle</div>
+                </div>
+            </div>
+        </a>
+        @auth
+        <a href="{{ route('auth.profile') }}" class="bg-white/90 backdrop-blur rounded-xl shadow-md px-4 py-3 hover:bg-white">
+            <div class="flex items-center gap-2">
+                <span>👤</span>
+                <div>
+                    <div class="text-sm font-semibold">Profil</div>
+                    <div class="text-xs text-gray-500">Hesap ayarları</div>
+                </div>
+            </div>
+        </a>
+        @else
+        <a href="{{ route('auth.login') }}" class="bg-white/90 backdrop-blur rounded-xl shadow-md px-4 py-3 hover:bg-white">
+            <div class="flex items-center gap-2">
+                <span>↪️</span>
+                <div>
+                    <div class="text-sm font-semibold">Giriş Yap</div>
+                    <div class="text-xs text-gray-500">Wikimedia ile</div>
+                </div>
+            </div>
+        </a>
+        @endauth
+    </div>
     
     <!-- Monument Info Panel -->
-    <div id="monumentInfo" class="absolute top-4 right-4 z-20 bg-white rounded-lg shadow-lg p-4 w-80 max-h-[calc(100vh-8rem)] overflow-y-auto hidden">
+    <div id="monumentInfo" class="absolute top-4 left-4 z-20 bg-white rounded-lg shadow-lg p-4 w-80 max-h-[calc(100vh-8rem)] overflow-y-auto hidden">
         <div class="flex justify-between items-start mb-3">
             <h3 id="monumentTitle" class="text-lg font-semibold"></h3>
             <button id="closeInfo" class="text-gray-400 hover:text-gray-600">
@@ -107,6 +141,10 @@
         </div>
         
         <div id="monumentDescription" class="text-sm text-gray-600 mb-3"></div>
+        <details class="mb-3">
+            <summary class="text-sm font-medium cursor-pointer">Geçici JSON</summary>
+            <pre id="monumentJson" class="text-[11px] bg-gray-100 rounded p-2 overflow-x-auto whitespace-pre-wrap"></pre>
+        </details>
         
         <div class="flex items-center justify-between text-sm text-gray-500 mb-3">
             <div class="flex items-center">
@@ -155,6 +193,13 @@ document.addEventListener('DOMContentLoaded', function() {
         attribution: '© OpenStreetMap contributors | © <a href="https://leafletjs.com/" target="_blank">Leaflet</a> | <a href="https://commons.wikimedia.org/wiki/Category:Wiki_Loves_Monuments_Turkey" target="_blank">Wikimedia Commons</a> | Made with ❤️ by <a href="https://github.com/m3rcury" target="_blank">m3rcury</a>'
     }).addTo(map);
     
+    // Clustering
+    const markerCluster = L.markerClusterGroup({
+        showCoverageOnHover: false,
+        maxClusterRadius: 45
+    });
+    map.addLayer(markerCluster);
+
     // Store markers
     let markers = [];
     let currentInfoWindow = null;
@@ -169,13 +214,17 @@ document.addEventListener('DOMContentLoaded', function() {
         searchPanel.classList.add('hidden');
     }
     
-    mobileSearchToggle.addEventListener('click', function() {
-        searchPanel.classList.toggle('hidden');
-    });
+    if (mobileSearchToggle) {
+        mobileSearchToggle.addEventListener('click', function() {
+            searchPanel.classList.toggle('hidden');
+        });
+    }
     
-    closeSearchPanel.addEventListener('click', function() {
-        searchPanel.classList.add('hidden');
-    });
+    if (closeSearchPanel) {
+        closeSearchPanel.addEventListener('click', function() {
+            searchPanel.classList.add('hidden');
+        });
+    }
     
     // Load monuments
     loadMonuments();
@@ -293,11 +342,11 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 
                 // Clear existing markers
-                markers.forEach(marker => marker.remove());
+                markerCluster.clearLayers();
                 markers = [];
                 
                 // Add new markers
-                data.forEach(monument => {
+                (data || []).forEach(monument => {
                     const marker = L.circleMarker([monument.coordinates.lat, monument.coordinates.lng], {
                         radius: 6,
                         fillColor: '#3B82F6',
@@ -309,7 +358,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     marker.monument = monument;
                     markers.push(marker);
-                    marker.addTo(map);
+                    markerCluster.addLayer(marker);
                     
                     // Add click event
                     marker.on('click', function() {
@@ -321,7 +370,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 loadProvinces();
             })
             .catch(error => {
-                console.error('Error loading monuments:', error);
+                console.warn('Monuments unavailable');
             });
         }
     
@@ -361,7 +410,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             })
             .catch(error => {
-                console.error('Error loading provinces:', error);
+                // Fail soft if filters API fails to avoid hard error loops
+                console.warn('Filters unavailable');
             });
     }
     
@@ -374,6 +424,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const photoCount = document.getElementById('monumentPhotoCount');
         const detailsLink = document.getElementById('monumentDetailsLink');
         const wikidataLink = document.getElementById('monumentWikidataLink');
+        const jsonBox = document.getElementById('monumentJson');
         const photoCarousel = document.getElementById('photoCarousel');
         const carouselTrack = document.getElementById('carouselTrack');
         const carouselIndicators = document.getElementById('carouselIndicators');
@@ -381,26 +432,63 @@ document.addEventListener('DOMContentLoaded', function() {
         title.textContent = monument.name;
         description.textContent = monument.description || 'Açıklama bulunmuyor.';
         
-        // Get province name using Wikidata service
-        getProvinceName(monument.province).then(provinceName => {
-            province.textContent = provinceName;
-        }).catch(() => {
-            province.textContent = monument.province; // Fallback to raw value
-        });
+        // Prefer full location hierarchy if available
+        if (monument.location_hierarchy_tr) {
+            province.textContent = monument.location_hierarchy_tr;
+        } else if (monument.admin_area) {
+            province.textContent = monument.admin_area;
+        } else if (monument.city && monument.province) {
+            province.textContent = `${monument.city}, ${monument.province}`;
+        } else if (monument.province) {
+            getProvinceName(monument.province).then(provinceName => {
+                province.textContent = provinceName;
+            }).catch(() => {
+                province.textContent = monument.province;
+            });
+        } else if (monument.city) {
+            province.textContent = monument.city;
+        } else {
+            province.textContent = 'Bilinmeyen konum';
+        }
         
         photoCount.textContent = `${monument.photo_count} fotoğraf`;
         detailsLink.href = `/monuments/${monument.id}`;
         wikidataLink.href = `https://www.wikidata.org/wiki/${monument.wikidata_id}`;
         
-        // Handle photo carousel
+        // Handle photo preview/carousel
         if (monument.photos && monument.photos.length > 0) {
             setupPhotoCarousel(monument.photos);
+            photoCarousel.classList.remove('hidden');
+        } else if (monument.featured_photo) {
+            setupPhotoCarousel([
+                {
+                    full_resolution_url: monument.featured_photo,
+                    display_url: monument.featured_photo,
+                    title: monument.name,
+                    photographer: null,
+                    license: null,
+                    commons_url: null,
+                },
+            ]);
             photoCarousel.classList.remove('hidden');
         } else {
             photoCarousel.classList.add('hidden');
         }
         
         infoPanel.classList.remove('hidden');
+        
+        // Hide search panel when monument info is shown to avoid overlap
+        searchPanel.classList.add('hidden');
+
+        // Fetch full JSON for this monument and display
+        fetch(`/api/monuments/${monument.id}?raw=1`)
+            .then(r => r.json())
+            .then(full => {
+                jsonBox.textContent = JSON.stringify(full, null, 2);
+            })
+            .catch(() => {
+                jsonBox.textContent = JSON.stringify(monument, null, 2);
+            });
     }
     
     // Setup photo carousel
@@ -517,6 +605,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Close monument info panel
     document.getElementById('closeInfo').addEventListener('click', function() {
         document.getElementById('monumentInfo').classList.add('hidden');
+        // Show search panel again when monument info is closed
+        if (window.innerWidth >= 768) {
+            searchPanel.classList.remove('hidden');
+        }
     });
 });
 </script>
@@ -559,8 +651,19 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 /* Prevent panels from being hidden during map zoom */
-#searchPanel, #monumentInfo {
+#searchPanel {
     z-index: 2000 !important;
+    position: fixed !important;
+}
+
+#monumentInfo {
+    z-index: 1500 !important;
+    position: fixed !important;
+}
+
+/* Ensure floating nav cards stay on top */
+.floating-nav-cards {
+    z-index: 3000 !important;
     position: fixed !important;
 }
 
