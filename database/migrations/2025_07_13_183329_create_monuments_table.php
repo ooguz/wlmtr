@@ -38,7 +38,11 @@ return new class extends Migration
             $table->json('properties')->nullable(); // Store additional Wikidata properties
             $table->timestamp('last_synced_at')->nullable();
             $table->timestamps();
-            
+
+            if (Schema::getConnection()->getDriverName() === 'mysql') {
+                $table->fullText(['name_tr', 'name_en', 'description_tr', 'description_en']);
+            }
+
             // Indexes for better performance
             $table->index(['latitude', 'longitude']);
             $table->index('has_photos');

@@ -97,7 +97,14 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
                     </svg>
-                    <span>{{ \App\Services\WikidataSparqlService::getLabelForQCode($monument->city ?? $monument->province ?? 'Bilinmeyen konum') }}</span>
+                    <span>
+                        {{ $monument->location_hierarchy_tr
+                            ?? ( $monument->admin_area_tr
+                                ?? ( $monument->city ? \App\Services\WikidataSparqlService::getLabelForQCode($monument->city)
+                                    : ( $monument->province ? \App\Services\WikidataSparqlService::getLabelForQCode($monument->province)
+                                        : ( $monument->district ? \App\Services\WikidataSparqlService::getLabelForQCode($monument->district)
+                                            : 'Bilinmeyen konum')))) }}
+                    </span>
                     @if($monument->address)
                         <span class="mx-2">•</span>
                         <span>{{ $monument->address }}</span>
@@ -122,6 +129,19 @@
                 </div>
             </div>
             
+            <!-- TEMP: Raw JSON dump for debugging -->
+            <div class="mb-8">
+                <h2 class="text-xl font-semibold text-gray-900 mb-2">Geçici JSON</h2>
+                @php
+                    $raw = \App\Services\WikidataSparqlService::getEntityData($monument->wikidata_id ?? '');
+                    $payload = [
+                        'monument' => $monument->load(['photos','categories'])->toArray(),
+                        'raw_wikidata' => $raw,
+                    ];
+                @endphp
+                <pre class="text-xs bg-gray-100 rounded p-3 overflow-x-auto">{{ json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</pre>
+            </div>
+
             <!-- Map -->
             @if($monument->hasCoordinates())
                 <div class="mb-8">

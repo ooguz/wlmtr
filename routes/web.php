@@ -1,8 +1,9 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\MonumentController;
 use App\Http\Controllers\Auth\WikimediaAuthController;
+use App\Http\Controllers\MonumentController;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('monuments.map');
@@ -21,11 +22,11 @@ Route::prefix('auth')->name('auth.')->group(function () {
     Route::get('/wikimedia', [WikimediaAuthController::class, 'redirectToWikimedia'])->name('wikimedia.redirect');
     Route::get('/wikimedia/callback', [WikimediaAuthController::class, 'handleWikimediaCallback'])->name('wikimedia.callback');
     Route::post('/logout', [WikimediaAuthController::class, 'logout'])->name('logout');
-    
+
     // Development mock login
     Route::get('/mock-login', [WikimediaAuthController::class, 'showMockLogin'])->name('mock-login');
     Route::post('/mock-login', [WikimediaAuthController::class, 'handleMockLogin'])->name('mock-login.post');
-    
+
     // Protected routes
     Route::middleware('auth')->group(function () {
         Route::get('/profile', [WikimediaAuthController::class, 'profile'])->name('profile');
@@ -37,7 +38,15 @@ Route::prefix('auth')->name('auth.')->group(function () {
 Route::prefix('api')->name('api.')->group(function () {
     Route::get('/monuments/map-markers', [MonumentController::class, 'apiMapMarkers'])->name('monuments.map-markers');
     Route::get('/monuments/search', [MonumentController::class, 'apiSearch'])->name('monuments.search');
-    Route::get('/monuments/{monument}', [MonumentController::class, 'apiShow'])->name('monuments.show');
     Route::get('/monuments/filters', [MonumentController::class, 'apiFilters'])->name('monuments.filters');
+    Route::get('/monuments/{monument}', [MonumentController::class, 'apiShow'])->name('monuments.show');
     Route::get('/wikidata/label/{qcode}', [MonumentController::class, 'apiWikidataLabel'])->name('wikidata.label');
+
+    // Serve OpenAPI spec
+    Route::get('/docs/openapi', function () {
+        $path = public_path('openapi.yaml');
+        abort_unless(File::exists($path), 404);
+
+        return response(File::get($path), 200, ['Content-Type' => 'application/yaml']);
+    })->name('docs.openapi');
 });

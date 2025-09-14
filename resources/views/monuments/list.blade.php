@@ -132,10 +132,13 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
                         </svg>
                         <span>
-                            {{ $monument->city ?? $monument->province ?? 'Bilinmeyen konum' }}
-                            ({{ \App\Services\WikidataSparqlService::getLabelForQCode($monument->city ?? $monument->province ?? 'Bilinmeyen konum') }})
+                            {{ $monument->location_hierarchy_tr
+                                ?? ( $monument->admin_area_tr 
+                                    ?? ( $monument->city ? \App\Services\WikidataSparqlService::getLabelForQCode($monument->city)
+                                        : ( $monument->province ? \App\Services\WikidataSparqlService::getLabelForQCode($monument->province)
+                                            : ( $monument->district ? \App\Services\WikidataSparqlService::getLabelForQCode($monument->district)
+                                                : 'Bilinmeyen konum')))) }}
                         </span>
-                        <span>Test: {{ \App\Services\WikidataSparqlService::getLabelForQCode('Q406') }}</span>
                     </div>
                     
                     <!-- Photo count -->

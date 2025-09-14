@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('photos', function (Blueprint $table) {
-            $table->string('license_shortname')->nullable()->after('license');
-        });
+        if (! Schema::hasColumn('photos', 'license_shortname')) {
+            Schema::table('photos', function (Blueprint $table) {
+                $table->string('license_shortname')->nullable()->after('license');
+            });
+        }
     }
 
     /**
@@ -21,8 +23,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('photos', function (Blueprint $table) {
-            $table->dropColumn('license_shortname');
-        });
+        if (Schema::hasColumn('photos', 'license_shortname')) {
+            Schema::table('photos', function (Blueprint $table) {
+                $table->dropColumn('license_shortname');
+            });
+        }
     }
 };

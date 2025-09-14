@@ -6,7 +6,8 @@ export default defineConfig({
     plugins: [
         laravel({
             input: ['resources/css/app.css', 'resources/js/app.js'],
-            refresh: true,
+            // Disable full-page refresh to prevent reload loops in dev
+            refresh: false,
         }),
         tailwindcss(),
     ],
