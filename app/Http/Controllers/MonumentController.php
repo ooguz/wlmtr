@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Monument;
 use App\Models\Category;
-use Illuminate\Http\Request;
+use App\Models\Monument;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class MonumentController extends Controller
@@ -32,13 +32,7 @@ class MonumentController extends Controller
 
         // Apply filters
         if ($request->filled('search')) {
-            $search = $request->get('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('name_tr', 'like', "%{$search}%")
-                  ->orWhere('name_en', 'like', "%{$search}%")
-                  ->orWhere('description_tr', 'like', "%{$search}%")
-                  ->orWhere('description_en', 'like', "%{$search}%");
-            });
+            $query->search($request->string('search'));
         }
 
         if ($request->filled('province')) {
@@ -87,10 +81,23 @@ class MonumentController extends Controller
     /**
      * Display monument details.
      */
-    public function show(Monument $monument): View
+    public function show(Monument $monument, \App\Services\WikidataSparqlService $sparqlService): View
     {
         $monument->load(['photos', 'categories']);
-        
+
+        // Ensure location hierarchy is available for the detail page
+        if (empty($monument->location_hierarchy_tr) && ! empty($monument->wikidata_id)) {
+            try {
+                $computed = $sparqlService->fetchLocationHierarchyString($monument->wikidata_id);
+                if (! empty($computed)) {
+                    // Set for this response; persistence handled by backfill/cron
+                    $monument->setAttribute('location_hierarchy_tr', $computed);
+                }
+            } catch (\Throwable $e) {
+                // Soft-fail; show fallback in view
+            }
+        }
+
         return view('monuments.show', compact('monument'));
     }
 
@@ -99,7 +106,8 @@ class MonumentController extends Controller
      */
     public function apiMapMarkers(Request $request): JsonResponse
     {
-        $query = Monument::with(['photos', 'categories'])
+        $query = Monument::query()
+            ->select(['id', 'wikidata_id', 'name_tr', 'name_en', 'description_tr', 'description_en', 'latitude', 'longitude', 'has_photos', 'photo_count', 'province', 'city', 'district', 'location_hierarchy_tr'])
             ->whereNotNull('latitude')
             ->whereNotNull('longitude');
 
@@ -107,7 +115,7 @@ class MonumentController extends Controller
         if ($request->filled('bounds')) {
             $bounds = $request->get('bounds');
             $query->whereBetween('latitude', [$bounds['south'], $bounds['north']])
-                  ->whereBetween('longitude', [$bounds['west'], $bounds['east']]);
+                ->whereBetween('longitude', [$bounds['west'], $bounds['east']]);
         }
 
         if ($request->filled('has_photos')) {
@@ -118,34 +126,31 @@ class MonumentController extends Controller
             }
         }
 
+        // Safety cap if bounds not provided
+        if (! $request->filled('bounds')) {
+            $query->orderByDesc('last_synced_at')->limit(2000);
+        }
+
         $monuments = $query->get()->map(function ($monument) {
             return [
                 'id' => $monument->id,
                 'wikidata_id' => $monument->wikidata_id,
-                'name' => $monument->primary_name,
-                'description' => $monument->primary_description,
-                'coordinates' => $monument->coordinates,
-                'has_photos' => $monument->has_photos,
-                'photo_count' => $monument->photo_count,
-                'featured_photo' => $monument->featured_photo?->display_url,
-                'photos' => $monument->photos->take(5)->map(function ($photo) {
-                    return [
-                        'id' => $photo->id,
-                        'title' => $photo->title,
-                        'description' => $photo->description,
-                        'photographer' => $photo->photographer,
-                        'license' => $photo->license_display_name,
-                        'display_url' => $photo->display_url,
-                        'full_resolution_url' => $photo->full_resolution_url,
-                        'commons_url' => $photo->commons_url,
-                        'is_featured' => $photo->is_featured,
-                    ];
-                }),
-                'categories' => $monument->categories->pluck('primary_name'),
-                'heritage_status' => $monument->heritage_status,
+                'name' => $monument->name_tr ?? $monument->name_en ?? 'Unnamed Monument',
+                'description' => $monument->description_tr ?? $monument->description_en,
+                'coordinates' => [
+                    'lat' => (float) $monument->latitude,
+                    'lng' => (float) $monument->longitude,
+                ],
+                'has_photos' => (bool) $monument->has_photos,
+                'photo_count' => (int) $monument->photo_count,
+                'featured_photo' => null, // Skip featured photo for performance
                 'province' => $monument->province,
                 'city' => $monument->city,
-                'url' => route('monuments.show', $monument),
+                'district' => $monument->district,
+                'country' => $monument->country,
+                'admin_area' => $monument->location_hierarchy_tr,
+                'location_hierarchy_tr' => $monument->location_hierarchy_tr,
+                'url' => "/monuments/{$monument->id}",
             ];
         });
 
@@ -161,13 +166,7 @@ class MonumentController extends Controller
 
         // Apply search filters
         if ($request->filled('q')) {
-            $search = $request->get('q');
-            $query->where(function ($q) use ($search) {
-                $q->where('name_tr', 'like', "%{$search}%")
-                  ->orWhere('name_en', 'like', "%{$search}%")
-                  ->orWhere('description_tr', 'like', "%{$search}%")
-                  ->orWhere('description_en', 'like', "%{$search}%");
-            });
+            $query->search($request->string('q'));
         }
 
         // Apply filters
@@ -226,6 +225,13 @@ class MonumentController extends Controller
     {
         $monument->load(['photos', 'categories']);
 
+        // Optional: include raw Wikidata entity when requested
+        $raw = request()->boolean('raw');
+        $rawEntity = null;
+        if ($raw && $monument->wikidata_id) {
+            $rawEntity = \App\Services\WikidataSparqlService::getEntityData($monument->wikidata_id);
+        }
+
         return response()->json([
             'id' => $monument->id,
             'wikidata_id' => $monument->wikidata_id,
@@ -235,6 +241,8 @@ class MonumentController extends Controller
             'address' => $monument->address,
             'city' => $monument->city,
             'province' => $monument->province,
+            'admin_area' => $monument->admin_area,
+            'location_hierarchy_tr' => $monument->location_hierarchy_tr,
             'heritage_status' => $monument->heritage_status,
             'construction_date' => $monument->construction_date,
             'architect' => $monument->architect,
@@ -269,6 +277,7 @@ class MonumentController extends Controller
                 ];
             }),
             'last_synced_at' => $monument->last_synced_at?->toISOString(),
+            'raw_wikidata' => $rawEntity,
         ]);
     }
 
@@ -277,23 +286,33 @@ class MonumentController extends Controller
      */
     public function apiFilters(): JsonResponse
     {
-        $provinces = Monument::distinct()->pluck('province')->filter()->sort()->values();
-        $cities = Monument::distinct()->pluck('city')->filter()->sort()->values();
-        $heritageStatuses = Monument::distinct()->pluck('heritage_status')->filter()->sort()->values();
-        $categories = Category::active()->withMonuments()->get()->map(function ($category) {
-            return [
-                'id' => $category->id,
-                'name' => $category->primary_name,
-                'monument_count' => $category->monument_count,
-            ];
-        });
+        try {
+            $provinces = Monument::distinct()->pluck('province')->filter()->sort()->values();
+            $cities = Monument::distinct()->pluck('city')->filter()->sort()->values();
+            $heritageStatuses = Monument::distinct()->pluck('heritage_status')->filter()->sort()->values();
+            $categories = Category::active()->withMonuments()->get()->map(function ($category) {
+                return [
+                    'id' => $category->id,
+                    'name' => $category->primary_name,
+                    'monument_count' => $category->monument_count,
+                ];
+            });
 
-        return response()->json([
-            'provinces' => $provinces,
-            'cities' => $cities,
-            'heritage_statuses' => $heritageStatuses,
-            'categories' => $categories,
-        ]);
+            return response()->json([
+                'provinces' => $provinces,
+                'cities' => $cities,
+                'heritage_statuses' => $heritageStatuses,
+                'categories' => $categories,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'provinces' => [],
+                'cities' => [],
+                'heritage_statuses' => [],
+                'categories' => [],
+                'warning' => 'Filters unavailable',
+            ]);
+        }
     }
 
     /**
@@ -303,6 +322,7 @@ class MonumentController extends Controller
     {
         try {
             $label = \App\Services\WikidataSparqlService::getLabelForQCode($qcode);
+
             return response()->json(['label' => $label]);
         } catch (\Exception $e) {
             return response()->json(['error' => 'Failed to fetch label'], 500);
