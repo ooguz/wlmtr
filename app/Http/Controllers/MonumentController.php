@@ -150,6 +150,12 @@ class MonumentController extends Controller
                 'country' => $monument->country,
                 'admin_area' => $monument->location_hierarchy_tr,
                 'location_hierarchy_tr' => $monument->location_hierarchy_tr,
+                'categories' => $monument->categories->map(function ($category) {
+                    return [
+                        'id' => $category->id,
+                        'name' => $category->primary_name,
+                    ];
+                }),
                 'url' => "/monuments/{$monument->id}",
             ];
         });
@@ -287,9 +293,24 @@ class MonumentController extends Controller
     public function apiFilters(): JsonResponse
     {
         try {
-            $provinces = Monument::distinct()->pluck('province')->filter()->sort()->values();
+            // Get provinces from database first, then supplement with Wikidata if needed
+            $dbProvinces = Monument::distinct()->pluck('province')->filter()->sort()->values();
+            
+            // If we have less than 20 provinces, fetch from Wikidata
+            if ($dbProvinces->count() < 20) {
+                $sparqlService = new \App\Services\WikidataSparqlService();
+                $wikidataProvinces = $sparqlService->fetchTurkishProvinces();
+                
+                // Merge and deduplicate
+                $allProvinces = $dbProvinces->merge($wikidataProvinces)->unique()->sort()->values();
+            } else {
+                $allProvinces = $dbProvinces;
+            }
+
             $cities = Monument::distinct()->pluck('city')->filter()->sort()->values();
             $heritageStatuses = Monument::distinct()->pluck('heritage_status')->filter()->sort()->values();
+            
+            // Get categories from database
             $categories = Category::active()->withMonuments()->get()->map(function ($category) {
                 return [
                     'id' => $category->id,
@@ -299,7 +320,7 @@ class MonumentController extends Controller
             });
 
             return response()->json([
-                'provinces' => $provinces,
+                'provinces' => $allProvinces,
                 'cities' => $cities,
                 'heritage_statuses' => $heritageStatuses,
                 'categories' => $categories,

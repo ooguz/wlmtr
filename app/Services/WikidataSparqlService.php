@@ -508,4 +508,112 @@ SPARQL;
 
         return null;
     }
+
+    /**
+     * Fetch all Turkish provinces from Wikidata.
+     */
+    public function fetchTurkishProvinces(): array
+    {
+        $query = '
+        SELECT ?province ?provinceLabel WHERE {
+          ?province wdt:P17 wd:Q43.
+          ?province wdt:P31 wd:Q15089.
+          SERVICE wikibase:label {
+            bd:serviceParam wikibase:language "tr,en".
+          }
+        }
+        ORDER BY ?provinceLabel
+        ';
+
+        try {
+            $response = Http::withHeaders([
+                'User-Agent' => self::USER_AGENT,
+                'Accept' => 'application/sparql-results+json',
+            ])->timeout(15)->get(self::SPARQL_ENDPOINT, [
+                'query' => $query,
+                'format' => 'json',
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                $provinces = [];
+
+                foreach ($data['results']['bindings'] ?? [] as $binding) {
+                    $label = $binding['provinceLabel']['value'] ?? null;
+                    if ($label && !str_starts_with($label, 'http')) {
+                        $provinces[] = $label;
+                    }
+                }
+
+                return array_unique($provinces);
+            }
+        } catch (\Throwable $e) {
+            Log::error('Failed to fetch Turkish provinces', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return [];
+    }
+
+    /**
+     * Fetch monument categories from Wikidata.
+     */
+    public function fetchMonumentCategories(): array
+    {
+        $query = '
+        SELECT DISTINCT ?category ?categoryLabel WHERE {
+          ?monument wdt:P17 wd:Q43.
+          ?monument wdt:P31 ?category.
+          SERVICE wikibase:label {
+            bd:serviceParam wikibase:language "tr,en".
+          }
+        }
+        ORDER BY ?categoryLabel
+        LIMIT 50
+        ';
+
+        try {
+            $response = Http::withHeaders([
+                'User-Agent' => self::USER_AGENT,
+                'Accept' => 'application/sparql-results+json',
+            ])->timeout(15)->get(self::SPARQL_ENDPOINT, [
+                'query' => $query,
+                'format' => 'json',
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                $categories = [];
+
+                foreach ($data['results']['bindings'] ?? [] as $binding) {
+                    $wikidataId = $this->extractWikidataId($binding['category']['value'] ?? '');
+                    $label = $binding['categoryLabel']['value'] ?? null;
+
+                    if ($wikidataId && $label && !str_starts_with($label, 'http')) {
+                        $categories[] = [
+                            'wikidata_id' => $wikidataId,
+                            'name_tr' => $label,
+                            'name_en' => $label,
+                            'description_tr' => null,
+                            'description_en' => null,
+                        ];
+                    }
+                }
+
+                return $categories;
+            } else {
+                Log::error('SPARQL query failed', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::error('Failed to fetch monument categories', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return [];
+    }
 }

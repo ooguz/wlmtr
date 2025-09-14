@@ -29,6 +29,14 @@
                 </select>
             </div>
             
+            <!-- Category Filter -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
+                <select id="categoryFilter" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">Tüm kategoriler</option>
+                </select>
+            </div>
+            
             <!-- Photo Filter -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Fotoğraf Durumu</label>
@@ -232,6 +240,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Search functionality
     const searchInput = document.getElementById('searchInput');
     const provinceFilter = document.getElementById('provinceFilter');
+    const categoryFilter = document.getElementById('categoryFilter');
     const photoFilter = document.getElementById('photoFilter');
     const distanceFilter = document.getElementById('distanceFilter');
     const distanceValue = document.getElementById('distanceValue');
@@ -246,6 +255,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function applyFilters() {
         const searchTerm = searchInput.value;
         const province = provinceFilter.value;
+        const category = categoryFilter.value;
         const hasPhotos = photoFilter.value;
         
         markers.forEach(marker => {
@@ -256,6 +266,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             if (province && marker.monument.province !== province) {
+                show = false;
+            }
+            
+            if (category && !marker.monument.categories?.some(cat => cat.id == category)) {
                 show = false;
             }
             
@@ -273,6 +287,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     searchInput.addEventListener('input', applyFilters);
     provinceFilter.addEventListener('change', applyFilters);
+    categoryFilter.addEventListener('change', applyFilters);
     photoFilter.addEventListener('change', applyFilters);
     
     // Location functionality
@@ -396,17 +411,27 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
     
-    // Load provinces for filter
+    // Load provinces and categories for filter
     function loadProvinces() {
         fetch('/api/monuments/filters')
             .then(response => response.json())
             .then(data => {
+                // Load provinces
                 const provinceFilter = document.getElementById('provinceFilter');
                 data.provinces.forEach(province => {
                     const option = document.createElement('option');
                     option.value = province;
                     option.textContent = province;
                     provinceFilter.appendChild(option);
+                });
+                
+                // Load categories
+                const categoryFilter = document.getElementById('categoryFilter');
+                data.categories.forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category.id;
+                    option.textContent = `${category.name} (${category.monument_count})`;
+                    categoryFilter.appendChild(option);
                 });
             })
             .catch(error => {
