@@ -1,0 +1,145 @@
+openapi: 3.0.3
+info:
+  title: WLM Turkey API
+  version: 1.0.0
+servers:
+  - url: /
+components:
+  schemas:
+    Photo:
+      type: object
+      properties:
+        id: { type: integer }
+        title: { type: string, nullable: true }
+        description: { type: string, nullable: true }
+        photographer: { type: string, nullable: true }
+        license: { type: string, nullable: true }
+        display_url: { type: string }
+        full_resolution_url: { type: string }
+        commons_url: { type: string, nullable: true }
+    Monument:
+      type: object
+      properties:
+        id: { type: integer }
+        wikidata_id: { type: string }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        coordinates:
+          type: object
+          properties:
+            lat: { type: number, format: float }
+            lng: { type: number, format: float }
+        address: { type: string, nullable: true }
+        city: { type: string, nullable: true }
+        province: { type: string, nullable: true }
+        heritage_status: { type: string, nullable: true }
+        construction_date: { type: string, nullable: true }
+        architect: { type: string, nullable: true }
+        style: { type: string, nullable: true }
+        material: { type: string, nullable: true }
+        wikidata_url: { type: string, nullable: true }
+        wikipedia_url: { type: string, nullable: true }
+        commons_url: { type: string, nullable: true }
+        has_photos: { type: boolean }
+        photo_count: { type: integer }
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Photo'
+paths:
+  /api/monuments/search:
+    get:
+      summary: Search monuments
+      tags: [Monuments]
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+        - in: query
+          name: province
+          schema:
+            type: string
+        - in: query
+          name: city
+          schema:
+            type: string
+        - in: query
+          name: heritage_status
+          schema:
+            type: string
+        - in: query
+          name: has_photos
+          schema:
+            type: string
+            enum: ["0", "1"]
+        - in: query
+          name: category
+          schema:
+            type: integer
+        - in: query
+          name: per_page
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Paginated monuments list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Monument'
+                  pagination:
+                    type: object
+                    properties:
+                      current_page: { type: integer }
+                      last_page: { type: integer }
+                      per_page: { type: integer }
+                      total: { type: integer }
+  /api/monuments/map-markers:
+    get:
+      summary: Map markers for monuments
+      tags: [Monuments]
+      parameters:
+        - in: query
+          name: bounds
+          schema:
+            type: object
+      responses:
+        '200':
+          description: Marker list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Monument'
+  /api/monuments/{id}:
+    get:
+      summary: Get monument details
+      tags: [Monuments]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Monument details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Monument'
+  /api/monuments/filters:
+    get:
+      summary: Available filters
+      tags: [Monuments]
+      responses:
+        '200':
+          description: Filters
+
