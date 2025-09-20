@@ -261,6 +261,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, 5000);
     
+    // Show spinner immediately when page loads
+    document.getElementById('loadingSpinner').style.display = 'flex';
+    
     // Search functionality
     const searchInput = document.getElementById('searchInput');
     const provinceFilter = document.getElementById('provinceFilter');
