@@ -243,11 +243,23 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Load monuments after map is ready
-    map.whenReady(function() {
-        // Small delay to let map initialize
-        setTimeout(loadMonuments, 500);
+    // Load monuments after first tile loads
+    let firstTileLoaded = false;
+    
+    map.on('tileload', function() {
+        if (!firstTileLoaded) {
+            firstTileLoaded = true;
+            // Wait a bit more for all initial tiles to load
+            setTimeout(loadMonuments, 1000);
+        }
     });
+    
+    // Fallback: load monuments after 5 seconds even if no tiles load
+    setTimeout(function() {
+        if (!firstTileLoaded) {
+            loadMonuments();
+        }
+    }, 5000);
     
     // Search functionality
     const searchInput = document.getElementById('searchInput');
