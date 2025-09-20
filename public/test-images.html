@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wikimedia Commons Image Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .monument-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .monument-card {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+        .monument-card:hover {
+            transform: translateY(-2px);
+        }
+        .monument-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+        .monument-info {
+            padding: 15px;
+        }
+        .monument-name {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        .monument-details {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .image-links {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .image-link {
+            background: #007bff;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+        .image-link:hover {
+            background: #0056b3;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 18px;
+            color: #666;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Wikimedia Commons Image Test</h1>
+        <p>Bu sayfa, Wikidata'dan çekilen anıtların görsellerini doğrudan Wikimedia Commons'tan gösterir.</p>
+        <p><strong>API Endpoint:</strong> <code>/api/monuments/test/images</code></p>
+    </div>
+
+    <div id="content">
+        <div class="loading">Yükleniyor...</div>
+    </div>
+
+    <script>
+        async function loadMonuments() {
+            try {
+                const response = await fetch('/api/monuments/test/images');
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayMonuments(data.monuments);
+                } else {
+                    showError(data.error || 'Bilinmeyen hata');
+                }
+            } catch (error) {
+                showError('API çağrısı başarısız: ' + error.message);
+            }
+        }
+
+        function displayMonuments(monuments) {
+            const content = document.getElementById('content');
+            
+            if (monuments.length === 0) {
+                content.innerHTML = '<div class="error">Hiç anıt bulunamadı.</div>';
+                return;
+            }
+
+            const grid = document.createElement('div');
+            grid.className = 'monument-grid';
+
+            monuments.forEach(monument => {
+                const card = document.createElement('div');
+                card.className = 'monument-card';
+                
+                const imageUrl = monument.image_urls?.thumbnail || monument.image_urls?.original;
+                
+                card.innerHTML = `
+                    <img src="${imageUrl}" alt="${monument.name}" class="monument-image" 
+                         onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkdyb3JzZWwgWMO8a2VsZW1lZGk8L3RleHQ+PC9zdmc+';"
+                         onload="console.log('Image loaded:', this.src);"
+                         onerror="console.error('Image failed to load:', this.src);">
+                    <div class="monument-info">
+                        <div class="monument-name">${monument.name}</div>
+                        <div class="monument-details"><strong>Wikidata ID:</strong> ${monument.wikidata_id}</div>
+                        <div class="monument-details"><strong>KE ID:</strong> ${monument.ke_id || 'N/A'}</div>
+                        <div class="monument-details"><strong>Dosya:</strong> ${monument.image_filename}</div>
+                        <div class="monument-details"><strong>Fotoğrafçı:</strong> ${monument.photographer || 'Bilinmiyor'}</div>
+                        <div class="monument-details"><strong>Lisans:</strong> ${monument.license || 'Bilinmiyor'}</div>
+                        <div class="image-links">
+                            <a href="${monument.image_urls?.thumbnail}" target="_blank" class="image-link">Küçük</a>
+                            <a href="${monument.image_urls?.medium}" target="_blank" class="image-link">Orta</a>
+                            <a href="${monument.image_urls?.large}" target="_blank" class="image-link">Büyük</a>
+                            <a href="${monument.image_urls?.original}" target="_blank" class="image-link">Orijinal</a>
+                            <a href="${monument.image_urls?.commons_page}" target="_blank" class="image-link">Commons</a>
+                        </div>
+                    </div>
+                `;
+                
+                grid.appendChild(card);
+            });
+
+            content.innerHTML = '';
+            content.appendChild(grid);
+        }
+
+        function showError(message) {
+            const content = document.getElementById('content');
+            content.innerHTML = `<div class="error">Hata: ${message}</div>`;
+        }
+
+        // Sayfa yüklendiğinde anıtları çek
+        loadMonuments();
+    </script>
+</body>
+</html>
