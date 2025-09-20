@@ -8,7 +8,7 @@
     <div id="map" class="w-full h-full"></div>
     
     <!-- Loading Spinner -->
-    <div id="loadingSpinner" class="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50" style="display: none;">
+    <div id="loadingSpinner" class="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50">
         <div class="text-center">
             <div class="inline-block animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
             <p class="text-lg font-medium text-gray-700">Anıtlar yükleniyor...</p>
@@ -243,8 +243,11 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Load monuments
-    loadMonuments();
+    // Load monuments after map tiles are loaded
+    map.whenReady(function() {
+        // Small delay to ensure tiles are fully loaded
+        setTimeout(loadMonuments, 500);
+    });
     
     // Search functionality
     const searchInput = document.getElementById('searchInput');
@@ -356,10 +359,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Load monuments from API
     function loadMonuments() {
-        // Show loading spinner
-        const loadingSpinner = document.getElementById('loadingSpinner');
-        loadingSpinner.style.display = 'flex';
-        
         fetch('/api/monuments/map-markers')
             .then(response => {
                 if (!response.ok) {
@@ -397,12 +396,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Load provinces for filter
                 loadProvinces();
                 
-                // Hide loading spinner
+                // Hide loading spinner after markers are added
+                const loadingSpinner = document.getElementById('loadingSpinner');
                 loadingSpinner.style.display = 'none';
             })
             .catch(error => {
                 console.warn('Monuments unavailable');
                 // Hide loading spinner even on error
+                const loadingSpinner = document.getElementById('loadingSpinner');
                 loadingSpinner.style.display = 'none';
             });
         }
