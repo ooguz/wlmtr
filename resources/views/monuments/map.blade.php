@@ -371,9 +371,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Load monuments from API
     function loadMonuments() {
-        // Show loading spinner
+        // Get loading spinner reference
         const loadingSpinner = document.getElementById('loadingSpinner');
-        loadingSpinner.style.display = 'flex';
         
         fetch('/api/monuments/map-markers')
             .then(response => {
