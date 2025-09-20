@@ -4,7 +4,7 @@
 
 @section('content')
 <!-- Loading Spinner -->
-<div id="loadingSpinner" class="fixed inset-0 bg-white bg-opacity-90 flex items-center justify-center z-[99999]">
+<div id="loadingSpinner" class="fixed inset-0 bg-white bg-opacity-90 flex items-center justify-center" style="z-index: 99999;">
     <div class="text-center">
         <div class="inline-block animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
         <p class="text-lg font-medium text-gray-700">Anıtlar yükleniyor...</p>
