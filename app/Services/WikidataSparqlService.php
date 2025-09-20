@@ -616,4 +616,278 @@ SPARQL;
 
         return [];
     }
+
+    /**
+     * Fetch monuments with images from Wikidata using the provided SPARQL query.
+     * This method tests direct image display from Wikimedia Commons without storing locally.
+     */
+    public function fetchMonumentsWithImages(): array
+    {
+        $query = $this->buildMonumentsWithImagesQuery();
+
+        try {
+            $response = Http::withHeaders([
+                'User-Agent' => self::USER_AGENT,
+                'Accept' => 'application/sparql-results+json',
+            ])->get(self::SPARQL_ENDPOINT, [
+                'query' => $query,
+                'format' => 'json',
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+
+                return $this->processMonumentsWithImagesData($data);
+            } else {
+                Log::error('Wikidata SPARQL query for monuments with images failed', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+
+                return [];
+            }
+        } catch (\Exception $e) {
+            Log::error('Exception during Wikidata SPARQL query for monuments with images', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return [];
+        }
+    }
+
+    /**
+     * Build the SPARQL query for Turkish monuments with images.
+     */
+    private function buildMonumentsWithImagesQuery(): string
+    {
+        return '
+        SELECT ?item ?itemLabel ?image ?p11729 WHERE {
+          ?item wdt:P11729 ?p11729;      # KE ID mevcut
+                wdt:P18 ?image;          # Görsel mevcut
+                wdt:P17 wd:Q43.          # Ülkesi Türkiye
+
+          SERVICE wikibase:label { bd:serviceParam wikibase:language "tr,en". }
+        }
+        LIMIT 20
+        ';
+    }
+
+    /**
+     * Process the SPARQL results for monuments with images.
+     */
+    private function processMonumentsWithImagesData(array $data): array
+    {
+        $monuments = [];
+
+        if (! isset($data['results']['bindings'])) {
+            return $monuments;
+        }
+
+        foreach ($data['results']['bindings'] as $binding) {
+            $monument = $this->processMonumentWithImageBinding($binding);
+            if ($monument) {
+                $monuments[] = $monument;
+            }
+        }
+
+        return $monuments;
+    }
+
+    /**
+     * Process a single monument with image binding from SPARQL results.
+     */
+    private function processMonumentWithImageBinding(array $binding): ?array
+    {
+        $itemUri = $binding['item']['value'] ?? null;
+        if (! $itemUri) {
+            return null;
+        }
+
+        $wikidataId = $this->extractWikidataId($itemUri);
+        if (! $wikidataId) {
+            return null;
+        }
+
+        $imageValue = $binding['image']['value'] ?? null;
+        $imageFilename = null;
+        $imageUrl = null;
+        
+        if ($imageValue) {
+            // Extract filename from URL
+            $parts = explode('/', $imageValue);
+            $imageFilename = urldecode(end($parts));
+            
+            // Ensure it starts with 'File:' prefix
+            if (! str_starts_with($imageFilename, 'File:')) {
+                $imageFilename = 'File:'.$imageFilename;
+            }
+            
+            // Generate Wikimedia Commons URLs for different sizes
+            $imageUrl = $this->generateCommonsImageUrl($imageFilename);
+        }
+
+        return [
+            'wikidata_id' => $wikidataId,
+            'name' => $binding['itemLabel']['value'] ?? 'Unnamed Monument',
+            'ke_id' => $binding['p11729']['value'] ?? null,
+            'image_filename' => $imageFilename,
+            'image_urls' => $imageUrl,
+            'wikidata_url' => $itemUri,
+        ];
+    }
+
+    /**
+     * Generate Wikimedia Commons image URLs for different sizes.
+     */
+    private function generateCommonsImageUrl(string $filename): array
+    {
+        // Remove 'File:' prefix if present for URL generation
+        $cleanFilename = str_replace('File:', '', $filename);
+        
+        // Proper URL encoding for Wikimedia Commons
+        // Replace spaces with %20 instead of +, and handle other special characters
+        $encodedFilename = str_replace(' ', '%20', $cleanFilename);
+        $encodedFilename = rawurlencode($cleanFilename);
+        
+        return [
+            'thumbnail' => "https://commons.wikimedia.org/wiki/Special:FilePath/{$encodedFilename}?width=300",
+            'medium' => "https://commons.wikimedia.org/wiki/Special:FilePath/{$encodedFilename}?width=800",
+            'large' => "https://commons.wikimedia.org/wiki/Special:FilePath/{$encodedFilename}?width=1200",
+            'original' => "https://commons.wikimedia.org/wiki/Special:FilePath/{$encodedFilename}",
+            'commons_page' => "https://commons.wikimedia.org/wiki/File:{$encodedFilename}",
+        ];
+    }
+
+    /**
+     * Fetch all monuments with images from Wikidata for photo sync.
+     * This method returns more detailed image information for database storage.
+     */
+    public function fetchAllMonumentsWithImages(?int $limit = null): array
+    {
+        $query = $this->buildAllMonumentsWithImagesQuery($limit);
+
+        try {
+            $response = Http::withHeaders([
+                'User-Agent' => self::USER_AGENT,
+                'Accept' => 'application/sparql-results+json',
+            ])->get(self::SPARQL_ENDPOINT, [
+                'query' => $query,
+                'format' => 'json',
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+
+                return $this->processAllMonumentsWithImagesData($data);
+            } else {
+                Log::error('Wikidata SPARQL query for all monuments with images failed', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+
+                return [];
+            }
+        } catch (\Exception $e) {
+            Log::error('Exception during Wikidata SPARQL query for all monuments with images', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return [];
+        }
+    }
+
+    /**
+     * Build the SPARQL query for all Turkish monuments with images.
+     */
+    private function buildAllMonumentsWithImagesQuery(?int $limit = null): string
+    {
+        $limitClause = $limit ? "LIMIT {$limit}" : '';
+        
+        return "
+        SELECT ?item ?itemLabel ?image ?p11729 WHERE {
+          ?item wdt:P11729 ?p11729;      # KE ID mevcut
+                wdt:P18 ?image;          # Görsel mevcut
+                wdt:P17 wd:Q43.          # Ülkesi Türkiye
+
+          SERVICE wikibase:label { bd:serviceParam wikibase:language \"tr,en\". }
+        }
+        ORDER BY ?itemLabel
+        {$limitClause}
+        ";
+    }
+
+    /**
+     * Process the SPARQL results for all monuments with images.
+     */
+    private function processAllMonumentsWithImagesData(array $data): array
+    {
+        $monuments = [];
+
+        if (! isset($data['results']['bindings'])) {
+            return $monuments;
+        }
+
+        foreach ($data['results']['bindings'] as $binding) {
+            $monument = $this->processAllMonumentWithImageBinding($binding);
+            if ($monument) {
+                $monuments[] = $monument;
+            }
+        }
+
+        return $monuments;
+    }
+
+    /**
+     * Process a single monument with image binding for comprehensive photo sync.
+     */
+    private function processAllMonumentWithImageBinding(array $binding): ?array
+    {
+        $itemUri = $binding['item']['value'] ?? null;
+        if (! $itemUri) {
+            return null;
+        }
+
+        $wikidataId = $this->extractWikidataId($itemUri);
+        if (! $wikidataId) {
+            return null;
+        }
+
+        $imageValue = $binding['image']['value'] ?? null;
+        $images = [];
+        
+        if ($imageValue) {
+            // Extract filename from URL
+            $parts = explode('/', $imageValue);
+            $imageFilename = urldecode(end($parts));
+            
+            // Ensure it starts with 'File:' prefix
+            if (! str_starts_with($imageFilename, 'File:')) {
+                $imageFilename = 'File:'.$imageFilename;
+            }
+            
+            // Generate Wikimedia Commons URLs for different sizes
+            $imageUrls = $this->generateCommonsImageUrl($imageFilename);
+            
+            $images[] = [
+                'filename' => $imageFilename,
+                'title' => $binding['itemLabel']['value'] ?? 'Unnamed Monument',
+                'description' => null, // Could be enhanced with more SPARQL queries
+                'photographer' => null, // Could be enhanced with more SPARQL queries
+                'license' => null, // Could be enhanced with more SPARQL queries
+                'license_shortname' => null,
+                'date_taken' => null, // Could be enhanced with more SPARQL queries
+                'urls' => $imageUrls,
+            ];
+        }
+
+        return [
+            'wikidata_id' => $wikidataId,
+            'name' => $binding['itemLabel']['value'] ?? 'Unnamed Monument',
+            'ke_id' => $binding['p11729']['value'] ?? null,
+            'images' => $images,
+            'wikidata_url' => $itemUri,
+        ];
+    }
 }
