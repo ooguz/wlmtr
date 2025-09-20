@@ -8,7 +8,7 @@
     <div id="map" class="w-full h-full"></div>
     
     <!-- Loading Spinner -->
-    <div id="loadingSpinner" class="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50" style="display: none;">
+    <div id="loadingSpinner" class="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center z-[9999]" style="display: none;">
         <div class="text-center">
             <div class="inline-block animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
             <p class="text-lg font-medium text-gray-700">Anıtlar yükleniyor...</p>
