@@ -8,7 +8,7 @@
     <div id="map" class="w-full h-full"></div>
     
     <!-- Loading Spinner -->
-    <div id="loadingSpinner" class="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50">
+    <div id="loadingSpinner" class="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50" style="display: none;">
         <div class="text-center">
             <div class="inline-block animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
             <p class="text-lg font-medium text-gray-700">Anıtlar yükleniyor...</p>
@@ -243,25 +243,11 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Load monuments after map is ready and tiles start loading
-    let monumentsLoaded = false;
-    
-    // Wait for map to be ready, then wait a bit more for tiles
+    // Load monuments after map is ready
     map.whenReady(function() {
-        // Wait for initial tiles to load
-        setTimeout(function() {
-            if (!monumentsLoaded) {
-                loadMonuments();
-            }
-        }, 2000);
+        // Small delay to let map initialize
+        setTimeout(loadMonuments, 500);
     });
-    
-    // Fallback: load monuments after 5 seconds even if tiles aren't loaded
-    setTimeout(function() {
-        if (!monumentsLoaded) {
-            loadMonuments();
-        }
-    }, 5000);
     
     // Search functionality
     const searchInput = document.getElementById('searchInput');
@@ -373,7 +359,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Load monuments from API
     function loadMonuments() {
-        monumentsLoaded = true;
+        // Show loading spinner
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        loadingSpinner.style.display = 'flex';
+        
         fetch('/api/monuments/map-markers')
             .then(response => {
                 if (!response.ok) {
@@ -412,13 +401,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 loadProvinces();
                 
                 // Hide loading spinner after markers are added
-                const loadingSpinner = document.getElementById('loadingSpinner');
                 loadingSpinner.style.display = 'none';
             })
             .catch(error => {
                 console.warn('Monuments unavailable');
                 // Hide loading spinner even on error
-                const loadingSpinner = document.getElementById('loadingSpinner');
                 loadingSpinner.style.display = 'none';
             });
         }
