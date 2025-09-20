@@ -40,6 +40,7 @@ Route::prefix('api')->name('api.')->group(function () {
     Route::get('/monuments/search', [MonumentController::class, 'apiSearch'])->name('monuments.search');
     Route::get('/monuments/filters', [MonumentController::class, 'apiFilters'])->name('monuments.filters');
     Route::get('/monuments/{monument}', [MonumentController::class, 'apiShow'])->name('monuments.show');
+    Route::get('/monuments/test/images', [MonumentController::class, 'apiTestImages'])->name('monuments.test-images');
     Route::get('/wikidata/label/{qcode}', [MonumentController::class, 'apiWikidataLabel'])->name('wikidata.label');
 
     // Serve OpenAPI spec
