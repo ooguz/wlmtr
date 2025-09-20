@@ -249,6 +249,7 @@ document.addEventListener('DOMContentLoaded', function() {
     map.on('tileload', function() {
         if (!firstTileLoaded) {
             firstTileLoaded = true;
+            console.log('First tile loaded, will call loadMonuments in 1 second');
             // Wait a bit more for all initial tiles to load
             setTimeout(loadMonuments, 1000);
         }
@@ -373,6 +374,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function loadMonuments() {
         // Get loading spinner reference
         const loadingSpinner = document.getElementById('loadingSpinner');
+        console.log('loadMonuments started, spinner should be visible');
         
         fetch('/api/monuments/map-markers')
             .then(response => {
@@ -412,6 +414,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 loadProvinces();
                 
                 // Hide loading spinner after markers are added
+                console.log('Hiding spinner - markers have been added');
                 loadingSpinner.style.display = 'none';
             })
             .catch(error => {
