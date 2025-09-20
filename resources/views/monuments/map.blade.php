@@ -243,11 +243,25 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Load monuments after map tiles are loaded
+    // Load monuments after map is ready and tiles start loading
+    let monumentsLoaded = false;
+    
+    // Wait for map to be ready, then wait a bit more for tiles
     map.whenReady(function() {
-        // Small delay to ensure tiles are fully loaded
-        setTimeout(loadMonuments, 500);
+        // Wait for initial tiles to load
+        setTimeout(function() {
+            if (!monumentsLoaded) {
+                loadMonuments();
+            }
+        }, 2000);
     });
+    
+    // Fallback: load monuments after 5 seconds even if tiles aren't loaded
+    setTimeout(function() {
+        if (!monumentsLoaded) {
+            loadMonuments();
+        }
+    }, 5000);
     
     // Search functionality
     const searchInput = document.getElementById('searchInput');
@@ -359,6 +373,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Load monuments from API
     function loadMonuments() {
+        monumentsLoaded = true;
         fetch('/api/monuments/map-markers')
             .then(response => {
                 if (!response.ok) {
