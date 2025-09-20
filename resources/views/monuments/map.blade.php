@@ -3,18 +3,18 @@
 @section('title', 'Anıt Haritası')
 
 @section('content')
+<!-- Loading Spinner -->
+<div id="loadingSpinner" class="fixed inset-0 bg-white bg-opacity-90 flex items-center justify-center z-[99999]" style="display: none;">
+    <div class="text-center">
+        <div class="inline-block animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
+        <p class="text-lg font-medium text-gray-700">Anıtlar yükleniyor...</p>
+        <p class="text-sm text-gray-500 mt-2">Lütfen bekleyin</p>
+    </div>
+</div>
+
 <div class="fixed inset-0">
     <!-- Map Container -->
     <div id="map" class="w-full h-full"></div>
-    
-    <!-- Loading Spinner -->
-    <div id="loadingSpinner" class="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center z-[9999]" style="display: none;">
-        <div class="text-center">
-            <div class="inline-block animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
-            <p class="text-lg font-medium text-gray-700">Anıtlar yükleniyor...</p>
-            <p class="text-sm text-gray-500 mt-2">Lütfen bekleyin</p>
-        </div>
-    </div>
     
     <!-- Search Panel -->
     <div id="searchPanel" class="absolute top-4 left-4 z-20 bg-white rounded-lg shadow-lg p-4 w-80 max-h-[calc(100vh-8rem)] overflow-y-auto">
