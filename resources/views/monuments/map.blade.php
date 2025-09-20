@@ -4,7 +4,7 @@
 
 @section('content')
 <!-- Loading Spinner -->
-<div id="loadingSpinner" class="fixed inset-0 bg-white bg-opacity-90 flex items-center justify-center z-[99999]" style="display: none;">
+<div id="loadingSpinner" class="fixed inset-0 bg-white bg-opacity-90 flex items-center justify-center z-[99999]">
     <div class="text-center">
         <div class="inline-block animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
         <p class="text-lg font-medium text-gray-700">Anıtlar yükleniyor...</p>
@@ -260,9 +260,6 @@ document.addEventListener('DOMContentLoaded', function() {
             loadMonuments();
         }
     }, 5000);
-    
-    // Show spinner immediately when page loads
-    document.getElementById('loadingSpinner').style.display = 'flex';
     
     // Search functionality
     const searchInput = document.getElementById('searchInput');
