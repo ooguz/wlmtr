@@ -23,10 +23,6 @@ Route::prefix('auth')->name('auth.')->group(function () {
     Route::get('/wikimedia/callback', [WikimediaAuthController::class, 'handleWikimediaCallback'])->name('wikimedia.callback');
     Route::post('/logout', [WikimediaAuthController::class, 'logout'])->name('logout');
 
-    // Development mock login
-    Route::get('/mock-login', [WikimediaAuthController::class, 'showMockLogin'])->name('mock-login');
-    Route::post('/mock-login', [WikimediaAuthController::class, 'handleMockLogin'])->name('mock-login.post');
-
     // Protected routes
     Route::middleware('auth')->group(function () {
         Route::get('/profile', [WikimediaAuthController::class, 'profile'])->name('profile');

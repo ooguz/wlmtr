@@ -5,11 +5,11 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\WikimediaAuthService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
-use Illuminate\Http\RedirectResponse;
 
 class WikimediaAuthController extends Controller
 {
@@ -26,45 +26,19 @@ class WikimediaAuthController extends Controller
     }
 
     /**
-     * Show the mock login page for development.
-     */
-    public function showMockLogin(): View
-    {
-        return view('auth.mock-login');
-    }
-
-    /**
-     * Handle mock login for development.
-     */
-    public function handleMockLogin(Request $request): RedirectResponse
-    {
-        $userData = $this->wikimediaAuth->handleCallback([]);
-        
-        if ($userData) {
-            $user = $this->findOrCreateUser($userData);
-            Auth::login($user);
-            
-            return redirect()->intended(route('monuments.map'))
-                ->with('success', 'Test hesabıyla giriş yapıldı!');
-        }
-        
-        return redirect()->route('auth.login')
-            ->withErrors(['wikimedia' => 'Test girişi başarısız.']);
-    }
-
-    /**
      * Redirect to Wikimedia OAuth.
      */
     public function redirectToWikimedia(): RedirectResponse
     {
         try {
             $authUrl = $this->wikimediaAuth->getAuthorizationUrl();
+
             return redirect($authUrl);
         } catch (\Exception $e) {
             Log::error('Wikimedia OAuth redirect error', [
                 'error' => $e->getMessage(),
             ]);
-            
+
             return redirect()->route('login')
                 ->withErrors(['wikimedia' => 'Wikimedia authentication is currently unavailable.']);
         }
@@ -77,24 +51,24 @@ class WikimediaAuthController extends Controller
     {
         try {
             $callbackData = $request->all();
-            
+
             // Handle OAuth callback data
             $userData = $this->wikimediaAuth->handleCallback($callbackData);
-            
-            if (!$userData) {
+
+            if (! $userData) {
                 return redirect()->route('login')
                     ->withErrors(['wikimedia' => 'Failed to authenticate with Wikimedia.']);
             }
 
             // Find or create user
             $user = $this->findOrCreateUser($userData);
-            
+
             // Log in the user
             Auth::login($user);
-            
+
             // Update user's Wikimedia data
             $this->updateUserWikimediaData($user, $userData);
-            
+
             Log::info('User logged in via Wikimedia', [
                 'user_id' => $user->id,
                 'wikimedia_username' => $user->wikimedia_username,
@@ -108,7 +82,7 @@ class WikimediaAuthController extends Controller
                 'error' => $e->getMessage(),
                 'callback_data' => $request->all(),
             ]);
-            
+
             return redirect()->route('login')
                 ->withErrors(['wikimedia' => 'Authentication failed. Please try again.']);
         }
@@ -120,10 +94,10 @@ class WikimediaAuthController extends Controller
     public function logout(Request $request): RedirectResponse
     {
         Auth::logout();
-        
+
         $request->session()->invalidate();
         $request->session()->regenerateToken();
-        
+
         return redirect()->route('monuments.map')
             ->with('success', 'Successfully logged out.');
     }
@@ -134,7 +108,7 @@ class WikimediaAuthController extends Controller
     private function findOrCreateUser(array $userData): User
     {
         // Try to find user by Wikimedia ID first
-        if (!empty($userData['wikimedia_id'])) {
+        if (! empty($userData['wikimedia_id'])) {
             $user = User::where('wikimedia_id', $userData['wikimedia_id'])->first();
             if ($user) {
                 return $user;
@@ -142,7 +116,7 @@ class WikimediaAuthController extends Controller
         }
 
         // Try to find user by Wikimedia username
-        if (!empty($userData['username'])) {
+        if (! empty($userData['username'])) {
             $user = User::where('wikimedia_username', $userData['username'])->first();
             if ($user) {
                 return $user;
@@ -187,8 +161,8 @@ class WikimediaAuthController extends Controller
     public function profile(): View
     {
         $user = Auth::user();
-        
-        if (!$user) {
+
+        if (! $user) {
             abort(401);
         }
 
@@ -201,8 +175,8 @@ class WikimediaAuthController extends Controller
     public function syncWikimediaData(): RedirectResponse
     {
         $user = Auth::user();
-        
-        if (!$user || !$user->isWikimediaConnected()) {
+
+        if (! $user || ! $user->isWikimediaConnected()) {
             return redirect()->route('profile')
                 ->withErrors(['wikimedia' => 'User is not connected to Wikimedia.']);
         }
@@ -210,23 +184,23 @@ class WikimediaAuthController extends Controller
         try {
             // Get updated user data from Wikimedia
             $userData = $this->wikimediaAuth->handleCallback([]);
-            
+
             if ($userData) {
                 $this->updateUserWikimediaData($user, $userData);
-                
+
                 return redirect()->route('profile')
                     ->with('success', 'Wikimedia data synced successfully.');
             }
-            
+
             return redirect()->route('profile')
                 ->withErrors(['wikimedia' => 'Failed to sync Wikimedia data.']);
-                
+
         } catch (\Exception $e) {
             Log::error('Wikimedia data sync error', [
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
             ]);
-            
+
             return redirect()->route('profile')
                 ->withErrors(['wikimedia' => 'Failed to sync Wikimedia data.']);
         }

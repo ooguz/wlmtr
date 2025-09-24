@@ -193,6 +193,7 @@ class Monument extends Model
                 if (! empty($hierarchy)) {
                     // Cache the result for this request
                     $this->setAttribute('location_hierarchy_tr', $hierarchy);
+
                     return $hierarchy;
                 }
             } catch (\Throwable $e) {
@@ -323,5 +324,42 @@ class Monument extends Model
             cos($latFrom) * cos($latTo) * pow(sin($lonDelta / 2), 2)));
 
         return $angle * $earthRadius;
+    }
+
+    /**
+     * Get Wikimedia Commons Upload Wizard URL for this monument.
+     */
+    public function getUploadWizardUrlAttribute(): string
+    {
+        $baseUrl = 'https://commons.wikimedia.org/wiki/Special:UploadWizard';
+
+        // Build description with monument name and WLM template
+        $description = $this->primary_name;
+        if ($this->wikidata_id) {
+            $description .= ' {{Load via app WLM.tr|year='.date('Y').'|source=wizard}}';
+        }
+
+        $params = [
+            'description' => $description,
+            'descriptionlang' => 'tr',
+            'campaign' => 'wlm-tr',
+        ];
+
+        // Add categories based on location hierarchy
+        if ($this->location_hierarchy_tr) {
+            $params['categories'] = $this->location_hierarchy_tr;
+        } elseif ($this->province) {
+            $provinceName = \App\Services\WikidataSparqlService::getLabelForQCode($this->province);
+            if ($provinceName) {
+                $params['categories'] = $provinceName;
+            }
+        }
+
+        // Add monument ID if available
+        if ($this->wikidata_id) {
+            $params['id'] = $this->wikidata_id;
+        }
+
+        return $baseUrl.'?'.http_build_query($params);
     }
 }

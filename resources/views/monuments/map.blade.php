@@ -158,10 +158,10 @@
         </div>
         
         <div id="monumentDescription" class="text-sm text-gray-600 mb-3"></div>
-        <details class="mb-3">
+        {{-- <details class="mb-3">
             <summary class="text-sm font-medium cursor-pointer">Geçici JSON</summary>
             <pre id="monumentJson" class="text-[11px] bg-gray-100 rounded p-2 overflow-x-auto whitespace-pre-wrap"></pre>
-        </details>
+        </details> --}}
         
         <div class="flex items-center justify-between text-sm text-gray-500 mb-3">
             <div class="flex items-center">
@@ -185,6 +185,19 @@
                target="_blank" 
                class="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 text-sm">
                 Wikidata
+            </a>
+        </div>
+        
+        <!-- Upload Wizard Link -->
+        <div class="mt-3">
+            <a id="monumentUploadWizardLink" 
+               href="#" 
+               target="_blank" 
+               class="w-full bg-green-600 text-white text-center px-3 py-2 rounded-md hover:bg-green-700 text-sm font-medium flex items-center justify-center">
+                <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                </svg>
+                Fotoğraf Yükleme Sihirbazı
             </a>
         </div>
     </div>
@@ -484,10 +497,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const photoCount = document.getElementById('monumentPhotoCount');
         const detailsLink = document.getElementById('monumentDetailsLink');
         const wikidataLink = document.getElementById('monumentWikidataLink');
-        const jsonBox = document.getElementById('monumentJson');
         const photoCarousel = document.getElementById('photoCarousel');
         const carouselTrack = document.getElementById('carouselTrack');
         const carouselIndicators = document.getElementById('carouselIndicators');
+        const uploadWizardLink = document.getElementById('monumentUploadWizardLink');
         
         title.textContent = monument.name;
         description.textContent = monument.description || 'Açıklama bulunmuyor.';
@@ -515,6 +528,10 @@ document.addEventListener('DOMContentLoaded', function() {
         detailsLink.href = `/monuments/${monument.id}`;
         wikidataLink.href = `https://www.wikidata.org/wiki/${monument.wikidata_id}`;
         
+        // Build upload wizard URL
+        const uploadWizardUrl = buildUploadWizardUrl(monument);
+        uploadWizardLink.href = uploadWizardUrl;
+        
         // Handle photo preview/carousel
         if (monument.photos && monument.photos.length > 0) {
             setupPhotoCarousel(monument.photos);
@@ -541,14 +558,14 @@ document.addEventListener('DOMContentLoaded', function() {
         searchPanel.classList.add('hidden');
 
         // Fetch full JSON for this monument and display
-        fetch(`/api/monuments/${monument.id}?raw=1`)
-            .then(r => r.json())
-            .then(full => {
-                jsonBox.textContent = JSON.stringify(full, null, 2);
-            })
-            .catch(() => {
-                jsonBox.textContent = JSON.stringify(monument, null, 2);
-            });
+        // fetch(`/api/monuments/${monument.id}?raw=1`)
+        //     .then(r => r.json())
+        //     .then(full => {
+        //         jsonBox.textContent = JSON.stringify(full, null, 2);
+        //     })
+        //     .catch(() => {
+        //         jsonBox.textContent = JSON.stringify(monument, null, 2);
+        //     });
     }
     
     // Setup photo carousel
@@ -670,6 +687,37 @@ document.addEventListener('DOMContentLoaded', function() {
             searchPanel.classList.remove('hidden');
         }
     });
+    
+    // Build upload wizard URL for monument
+    function buildUploadWizardUrl(monument) {
+        const baseUrl = 'https://commons.wikimedia.org/wiki/Special:UploadWizard';
+        
+        // Build description with monument name and WLM template
+        let description = monument.name;
+        if (monument.wikidata_id) {
+            description += '\{\{Load via app WLM.tr|year=' + new Date().getFullYear() + '|source=wizard\}\}';
+        }
+        
+        const params = {
+            description: description,
+            descriptionlang: 'tr',
+            campaign: 'wlm-tr',
+        };
+        
+        // Add categories based on location hierarchy
+        if (monument.location_hierarchy_tr) {
+            params.categories = monument.location_hierarchy_tr;
+        } else if (monument.province) {
+            params.categories = monument.province;
+        }
+        
+        // Add monument ID if available
+        if (monument.wikidata_id) {
+            params.id = monument.wikidata_id;
+        }
+        
+        return baseUrl + '?' + new URLSearchParams(params).toString();
+    }
 });
 </script>
 @endpush

@@ -9,6 +9,7 @@ use Illuminate\Support\Str;
 class WikimediaAuthService
 {
     private const COMMONS_OAUTH_URL = 'https://commons.wikimedia.org/w/index.php';
+
     private const COMMONS_API_URL = 'https://commons.wikimedia.org/w/api.php';
 
     /**
@@ -16,11 +17,6 @@ class WikimediaAuthService
      */
     public function getAuthorizationUrl(): string
     {
-        // For development, redirect to a mock login page
-        if (app()->environment('local')) {
-            return route('auth.mock-login');
-        }
-
         $params = [
             'title' => 'Special:OAuth/authorize',
             'oauth_consumer_key' => config('services.wikimedia.client_id'),
@@ -33,7 +29,7 @@ class WikimediaAuthService
             'state' => Str::random(40),
         ];
 
-        return self::COMMONS_OAUTH_URL . '?' . http_build_query($params);
+        return self::COMMONS_OAUTH_URL.'?'.http_build_query($params);
     }
 
     /**
@@ -42,14 +38,9 @@ class WikimediaAuthService
     public function handleCallback(array $callbackData): ?array
     {
         try {
-            // For development, use mock data
-            if (app()->environment('local')) {
-                return $this->getMockUserData();
-            }
-
             // Extract user information from the callback
             $userData = $this->getUserInfo($callbackData);
-            
+
             if ($userData) {
                 return [
                     'wikimedia_id' => $userData['userid'] ?? null,
@@ -73,23 +64,6 @@ class WikimediaAuthService
     }
 
     /**
-     * Get mock user data for development.
-     */
-    private function getMockUserData(): array
-    {
-        return [
-            'wikimedia_id' => '12345',
-            'username' => 'TestCommonsUser',
-            'real_name' => 'Test Commons User',
-            'email' => 'test@commons.wikimedia.org',
-            'groups' => ['user', 'autoconfirmed', 'filemover'],
-            'rights' => ['edit', 'upload', 'createpage', 'movefile'],
-            'edit_count' => 250,
-            'registration_date' => now()->subYears(2),
-        ];
-    }
-
-    /**
      * Get user information from Wikimedia Commons API.
      */
     private function getUserInfo(array $callbackData): ?array
@@ -103,6 +77,7 @@ class WikimediaAuthService
 
         if ($response->successful()) {
             $data = $response->json();
+
             return $data['query']['userinfo'] ?? null;
         }
 
@@ -124,7 +99,8 @@ class WikimediaAuthService
     {
         // Simplified signature generation
         // In production, you would need to implement proper OAuth 1.0a signature
-        $baseString = config('services.wikimedia.client_id') . config('services.wikimedia.client_secret') . time();
+        $baseString = config('services.wikimedia.client_id').config('services.wikimedia.client_secret').time();
+
         return hash_hmac('sha1', $baseString, config('services.wikimedia.client_secret'));
     }
 
@@ -159,9 +135,9 @@ class WikimediaAuthService
             if ($response->successful()) {
                 $data = $response->json();
                 $userInfo = $data['query']['userinfo'] ?? [];
-                
+
                 // Check if user is logged in and has edit permissions
-                return !empty($userInfo['name']) && 
+                return ! empty($userInfo['name']) &&
                        in_array('edit', $userInfo['rights'] ?? []);
             }
         } catch (\Exception $e) {
@@ -215,6 +191,7 @@ class WikimediaAuthService
 
             if ($response->successful()) {
                 $data = $response->json();
+
                 return $data['query']['usercontribs'] ?? [];
             }
         } catch (\Exception $e) {
@@ -258,7 +235,7 @@ class WikimediaAuthService
             if ($response->successful()) {
                 $data = $response->json();
                 $contribs = $data['query']['usercontribs'] ?? [];
-                
+
                 return [
                     'total_uploads' => count($contribs),
                     'last_upload' => $contribs[0]['timestamp'] ?? null,
@@ -273,4 +250,4 @@ class WikimediaAuthService
 
         return [];
     }
-} 
+}
