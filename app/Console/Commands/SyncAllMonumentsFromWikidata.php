@@ -38,7 +38,7 @@ class SyncAllMonumentsFromWikidata extends Command
         try {
             $startTime = microtime(true);
             
-            $totalSynced = $sparqlService->syncMonumentsToDatabase($batchSize);
+            $totalSynced = $sparqlService->syncMonumentsToDatabase($batchSize, $maxBatches);
             
             $endTime = microtime(true);
             $duration = round($endTime - $startTime, 2);

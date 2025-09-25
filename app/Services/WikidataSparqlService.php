@@ -64,14 +64,25 @@ class WikidataSparqlService
      */
     private function buildMonumentsQuery(int $offset = 0, int $limit = 1000): string
     {
+        // Matches the required query semantics provided by the user, with pagination
         return '
-        SELECT ?place ?placeLabel ?coordinates
-        WHERE {
-          ?place wdt:P17 wd:Q43.
-          OPTIONAL { ?place wdt:P625 ?coordinates. }
-          SERVICE wikibase:label {
-            bd:serviceParam wikibase:language "tr".
-          }
+        SELECT ?place ?placeLabel ?coordinates WHERE {
+          ?place wdt:P17 wd:Q43;             # Ülke: Türkiye
+                 wdt:P11729 _:dummy.         # P11729 niteliği mevcut olmalı
+
+          OPTIONAL { ?place wdt:P5816 ?value. }
+
+          FILTER(
+            !BOUND(?value) ||                # P5816 hiç yoksa
+            ?value IN (
+              wd:Q56557159, wd:Q56557591, wd:Q55555088, wd:Q60539160,
+              wd:Q63065035, wd:Q75505084, wd:Q27132179, wd:Q63187954,
+              wd:Q111050392, wd:Q106379705, wd:Q117841865
+            )
+          )
+
+          OPTIONAL { ?place wdt:P625 ?coordinates. } # Koordinatlar
+          SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],tr". }
         }
         ORDER BY ?place
         LIMIT ' . $limit . ' OFFSET ' . $offset . '
@@ -208,13 +219,13 @@ class WikidataSparqlService
     /**
      * Sync monuments data to database.
      */
-    public function syncMonumentsToDatabase(int $batchSize = 1000): int
+    public function syncMonumentsToDatabase(int $batchSize = 1000, ?int $maxBatches = null): int
     {
         $totalSynced = 0;
         $offset = 0;
         $batchNumber = 1;
 
-        do {
+        while (true) {
             Log::info("Fetching batch {$batchNumber} (offset: {$offset}, limit: {$batchSize})");
             
             $monuments = $this->fetchMonuments($offset, $batchSize);
@@ -263,12 +274,23 @@ class WikidataSparqlService
             
             // Add a small delay to avoid overwhelming Wikidata
             sleep(2);
-            
-        } while (count($monuments) === $batchSize);
+
+            // Respect max batches if provided
+            if ($maxBatches !== null && ($batchNumber - 1) >= $maxBatches) {
+                break;
+            }
+
+            // Stop if the endpoint returned fewer than requested (likely no more pages)
+            if (count($monuments) < $batchSize) {
+                break;
+            }
+        }
 
         Log::info('Monuments sync completed', [
             'total_synced' => $totalSynced,
             'batches_processed' => $batchNumber - 1,
+            'batch_size' => $batchSize,
+            'max_batches' => $maxBatches,
         ]);
 
         return $totalSynced;
