@@ -30,17 +30,24 @@ php artisan view:cache
 echo "🔧 Optimizing application..."
 php artisan optimize
 
-# 6. Sync Monument Data (if needed)
-echo "🏛️ Syncing monument data..."
-# Only sync if no monuments exist or if explicitly requested
+# 6. Import Monument Data (if needed)
+echo "🏛️ Importing monument data..."
+# Only import if no monuments exist
 MONUMENT_COUNT=$(php artisan tinker --execute="echo App\Models\Monument::count();" | tail -1)
 if [ "$MONUMENT_COUNT" -eq 0 ]; then
-    echo "No monuments found, syncing from Wikidata..."
-    php artisan monuments:sync-from-wikidata
-    php artisan monuments:hydrate-missing
-    php artisan monuments:sync-photos
+    echo "No monuments found, checking for import files..."
+    if [ -f "monuments_export.json" ] && [ -f "photos_export.json" ] && [ -f "categories_export.json" ]; then
+        echo "Found export files, importing data..."
+        php artisan import:monuments
+    else
+        echo "No export files found, attempting Wikidata sync..."
+        echo "Note: Wikidata SPARQL may timeout, consider using export/import method"
+        php artisan monuments:sync-all-from-wikidata --batch-size=500 --max-batches=5
+        php artisan monuments:hydrate-missing --limit=500
+        php artisan monuments:sync-photos
+    fi
 else
-    echo "Found $MONUMENT_COUNT monuments, skipping sync"
+    echo "Found $MONUMENT_COUNT monuments, skipping import"
 fi
 
 # 7. Set Permissions

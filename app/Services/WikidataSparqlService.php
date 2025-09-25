@@ -15,9 +15,9 @@ class WikidataSparqlService
     /**
      * Fetch monuments from Wikidata using SPARQL query.
      */
-    public function fetchMonuments(): array
+    public function fetchMonuments(int $offset = 0, int $limit = 1000): array
     {
-        $query = $this->buildMonumentsQuery();
+        $query = $this->buildMonumentsQuery($offset, $limit);
 
         try {
             $response = Http::withHeaders([
@@ -61,39 +61,19 @@ class WikidataSparqlService
     /**
      * Build the SPARQL query for Turkish monuments.
      */
-    private function buildMonumentsQuery(): string
+    private function buildMonumentsQuery(int $offset = 0, int $limit = 1000): string
     {
         return '
-        SELECT DISTINCT
-          ?place ?placeLabel ?coordinates
-          ?descriptionTr ?descriptionEn
-          ?heritageStatus ?heritageStatusLabel
-          ?constructionDate ?architect ?architectLabel
-          ?style ?styleLabel ?material ?materialLabel
-          ?address
-          ?city ?cityLabel ?district ?districtLabel ?province ?provinceLabel
-          ?commonsCategory ?image ?adminLabelTr
+        SELECT ?place ?placeLabel ?coordinates
         WHERE {
           ?place wdt:P17 wd:Q43.
           OPTIONAL { ?place wdt:P625 ?coordinates. }
-          OPTIONAL { ?place schema:description ?descriptionTr FILTER(LANG(?descriptionTr) = "tr") }
-          OPTIONAL { ?place schema:description ?descriptionEn FILTER(LANG(?descriptionEn) = "en") }
-          OPTIONAL { ?place wdt:P1435 ?heritageStatus. }
-          OPTIONAL { ?place wdt:P571 ?constructionDate. }
-          OPTIONAL { ?place wdt:P84 ?architect. }
-          OPTIONAL { ?place wdt:P149 ?style. }
-          OPTIONAL { ?place wdt:P186 ?material. }
-          OPTIONAL { ?place wdt:P6375 ?address. }
-          OPTIONAL { ?place wdt:P131 ?city. }
-          OPTIONAL { ?place wdt:P131 ?district. }
-          OPTIONAL { ?place wdt:P131 ?province. }
-          OPTIONAL { ?place wdt:P18 ?image. }
-          OPTIONAL { ?place wdt:P373 ?commonsCategory. }
           SERVICE wikibase:label {
-            bd:serviceParam wikibase:language "[AUTO_LANGUAGE],tr,en".
+            bd:serviceParam wikibase:language "tr".
           }
-          BIND(COALESCE(?districtLabel, ?cityLabel, ?provinceLabel) AS ?adminLabelTr)
         }
+        ORDER BY ?place
+        LIMIT ' . $limit . ' OFFSET ' . $offset . '
         ';
     }
 
@@ -150,28 +130,24 @@ class WikidataSparqlService
         return [
             'wikidata_id' => $wikidataId,
             'name_tr' => $binding['placeLabel']['value'] ?? null,
-            'description_tr' => $binding['descriptionTr']['value'] ?? null,
-            'description_en' => $binding['descriptionEn']['value'] ?? null,
+            'description_tr' => null, // Will be filled by hydrate command
+            'description_en' => null, // Will be filled by hydrate command
             'latitude' => $coordinates['lat'] ?? null,
             'longitude' => $coordinates['lng'] ?? null,
-            'heritage_status' => $this->cleanLabel($binding['heritageStatusLabel']['value'] ?? null) ?? $this->extractWikidataId($binding['heritageStatus']['value'] ?? null),
-            'construction_date' => $binding['constructionDate']['value'] ?? null,
-            'architect' => $this->cleanLabel($binding['architectLabel']['value'] ?? null) ?? $this->extractWikidataId($binding['architect']['value'] ?? null),
-            'style' => $this->cleanLabel($binding['styleLabel']['value'] ?? null) ?? $this->extractWikidataId($binding['style']['value'] ?? null),
-            'material' => $this->cleanLabel($binding['materialLabel']['value'] ?? null) ?? $this->extractWikidataId($binding['material']['value'] ?? null),
-            'address' => $binding['address']['value'] ?? null,
-            'city' => $this->cleanLabel($binding['cityLabel']['value'] ?? null) ?? $this->extractWikidataId($binding['city']['value'] ?? null),
-            'district' => $this->cleanLabel($binding['districtLabel']['value'] ?? null) ?? $this->extractWikidataId($binding['district']['value'] ?? null),
-            'province' => $this->cleanLabel($binding['provinceLabel']['value'] ?? null) ?? $this->extractWikidataId($binding['province']['value'] ?? null),
-            'commons_url' => isset($binding['commonsCategory']['value']) ? 'https://commons.wikimedia.org/wiki/Category:'.basename($binding['commonsCategory']['value']) : null,
-            'wikipedia_url' => $binding['wikipediaUrl']['value'] ?? null,
+            'heritage_status' => null,
+            'construction_date' => null,
+            'architect' => null,
+            'style' => null,
+            'material' => null,
+            'address' => null,
+            'city' => null,
+            'district' => null,
+            'province' => null,
+            'commons_url' => null,
+            'wikipedia_url' => null,
             'wikidata_url' => $placeUri,
-            'has_photos' => $imageFilename !== null || isset($binding['commonsCategory']['value']),
-            'properties' => array_filter([
-                'image' => $imageFilename,
-                'commons_category' => $binding['commonsCategory']['value'] ?? null,
-                'admin_label_tr' => $binding['adminLabelTr']['value'] ?? null,
-            ]),
+            'has_photos' => false,
+            'properties' => [],
         ];
     }
 
@@ -231,48 +207,70 @@ class WikidataSparqlService
     /**
      * Sync monuments data to database.
      */
-    public function syncMonumentsToDatabase(): int
+    public function syncMonumentsToDatabase(int $batchSize = 1000): int
     {
-        $monuments = $this->fetchMonuments();
-        $syncedCount = 0;
+        $totalSynced = 0;
+        $offset = 0;
+        $batchNumber = 1;
 
-        foreach ($monuments as $monumentData) {
-            try {
-                $monument = Monument::updateOrCreate(
-                    ['wikidata_id' => $monumentData['wikidata_id']],
-                    array_merge($monumentData, [
-                        'last_synced_at' => now(),
-                    ])
-                );
-
-                // Enrich with location hierarchy if missing
-                if (empty($monument->location_hierarchy_tr)) {
-                    try {
-                        $hierarchy = $this->fetchLocationHierarchyString($monument->wikidata_id);
-                        if (! empty($hierarchy)) {
-                            $monument->location_hierarchy_tr = $hierarchy;
-                            $monument->save();
-                        }
-                    } catch (\Throwable $e) {
-                        // Soft-fail; avoid blocking sync on hierarchy enrichment
-                    }
-                }
-
-                $syncedCount++;
-            } catch (\Exception $e) {
-                Log::error('Failed to sync monument', [
-                    'wikidata_id' => $monumentData['wikidata_id'],
-                    'error' => $e->getMessage(),
-                ]);
+        do {
+            Log::info("Fetching batch {$batchNumber} (offset: {$offset}, limit: {$batchSize})");
+            
+            $monuments = $this->fetchMonuments($offset, $batchSize);
+            
+            if (empty($monuments)) {
+                break;
             }
-        }
+
+            $syncedCount = 0;
+            foreach ($monuments as $monumentData) {
+                try {
+                    $monument = Monument::updateOrCreate(
+                        ['wikidata_id' => $monumentData['wikidata_id']],
+                        array_merge($monumentData, [
+                            'last_synced_at' => now(),
+                        ])
+                    );
+
+                    // Enrich with location hierarchy if missing
+                    if (empty($monument->location_hierarchy_tr)) {
+                        try {
+                            $hierarchy = $this->fetchLocationHierarchyString($monument->wikidata_id);
+                            if (! empty($hierarchy)) {
+                                $monument->location_hierarchy_tr = $hierarchy;
+                                $monument->save();
+                            }
+                        } catch (\Throwable $e) {
+                            // Soft-fail; avoid blocking sync on hierarchy enrichment
+                        }
+                    }
+
+                    $syncedCount++;
+                } catch (\Exception $e) {
+                    Log::error('Failed to sync monument', [
+                        'wikidata_id' => $monumentData['wikidata_id'],
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            $totalSynced += $syncedCount;
+            Log::info("Batch {$batchNumber} completed: {$syncedCount} monuments synced");
+            
+            $offset += $batchSize;
+            $batchNumber++;
+            
+            // Add a small delay to avoid overwhelming Wikidata
+            sleep(2);
+            
+        } while (count($monuments) === $batchSize);
 
         Log::info('Monuments sync completed', [
-            'total_fetched' => count($monuments),
-            'synced_count' => $syncedCount,
+            'total_synced' => $totalSynced,
+            'batches_processed' => $batchNumber - 1,
         ]);
 
-        return $syncedCount;
+        return $totalSynced;
     }
 
     /**
