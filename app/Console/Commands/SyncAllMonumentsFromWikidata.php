@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Services\WikidataSparqlService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 class SyncAllMonumentsFromWikidata extends Command
 {
@@ -35,6 +36,13 @@ class SyncAllMonumentsFromWikidata extends Command
         $this->info("Starting FULL monuments sync from Wikidata...");
         $this->info("Batch size: {$batchSize}, Max batches: {$maxBatches}");
         
+        // Prevent concurrent runs
+        $lock = Cache::lock('monuments_sync_lock', 6 * 3600); // 6 hours
+        if (! $lock->get()) {
+            $this->warn('Another monuments sync is already running. Exiting.');
+            return 0;
+        }
+
         try {
             $startTime = microtime(true);
             
@@ -62,7 +70,14 @@ class SyncAllMonumentsFromWikidata extends Command
             
             return 1;
         }
-        
+        finally {
+            try {
+                $lock->release();
+            } catch (\Throwable $e) {
+                // ignore
+            }
+        }
+
         return 0;
     }
 }
