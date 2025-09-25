@@ -31,6 +31,14 @@ class WikidataSparqlService
             if ($response->successful()) {
                 $data = $response->json();
 
+                // Check if data is null or empty
+                if ($data === null || !is_array($data)) {
+                    Log::warning('Wikidata SPARQL query returned null or invalid data', [
+                        'response_body' => $response->body(),
+                    ]);
+                    return [];
+                }
+
                 return $this->processMonumentsData($data);
             } else {
                 Log::error('Wikidata SPARQL query failed', [
