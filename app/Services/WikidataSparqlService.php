@@ -344,7 +344,8 @@ SPARQL;
             $response = Http::withHeaders([
                 'User-Agent' => self::USER_AGENT,
                 'Accept' => 'application/sparql-results+json',
-            ])->timeout(15)->get(self::SPARQL_ENDPOINT, [
+                'Content-Type' => 'application/x-www-form-urlencoded',
+            ])->timeout(120)->retry(5, 5000)->asForm()->post(self::SPARQL_ENDPOINT, [
                 'query' => $query,
                 'format' => 'json',
             ]);
