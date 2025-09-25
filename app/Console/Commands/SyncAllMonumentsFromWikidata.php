@@ -16,7 +16,9 @@ class SyncAllMonumentsFromWikidata extends Command
      */
     protected $signature = 'monuments:sync-all-from-wikidata 
                             {--batch-size=1000 : Number of monuments to fetch per batch}
-                            {--max-batches=20 : Maximum number of batches to process}';
+                            {--max-batches=20 : Maximum number of batches to process}
+                            {--lock-ttl=3600 : Lock TTL in seconds (prevents concurrent runs)}
+                            {--force : Force release an existing stale lock before starting}';
 
     /**
      * The console command description.
@@ -32,14 +34,33 @@ class SyncAllMonumentsFromWikidata extends Command
     {
         $batchSize = (int) $this->option('batch-size');
         $maxBatches = (int) $this->option('max-batches');
+        $lockTtl = (int) $this->option('lock-ttl');
+        $force = (bool) $this->option('force');
         
         $this->info("Starting FULL monuments sync from Wikidata...");
         $this->info("Batch size: {$batchSize}, Max batches: {$maxBatches}");
         
-        // Prevent concurrent runs
-        $lock = Cache::lock('monuments_sync_lock', 6 * 3600); // 6 hours
-        if (! $lock->get()) {
-            $this->warn('Another monuments sync is already running. Exiting.');
+        // Prevent concurrent runs, allow force unlock
+        $lockName = 'monuments_sync_lock';
+        if ($force) {
+            try {
+                Cache::lock($lockName, 1)->forceRelease();
+                $this->line('Released existing lock (force).');
+            } catch (\Throwable $e) {
+                // ignore
+            }
+        }
+
+        $lock = Cache::lock($lockName, max(60, $lockTtl));
+        try {
+            // Wait up to 10s to acquire lock to avoid races
+            $acquired = $lock->block(10);
+            if (! $acquired) {
+                $this->warn('Another monuments sync is already running. Exiting.');
+                return 0;
+            }
+        } catch (\Throwable $e) {
+            $this->warn('Could not acquire sync lock. Exiting.');
             return 0;
         }
 
