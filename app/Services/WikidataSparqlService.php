@@ -64,16 +64,15 @@ class WikidataSparqlService
      */
     private function buildMonumentsQuery(int $offset = 0, int $limit = 1000): string
     {
-        // Matches the required query semantics provided by the user, with pagination
+        // User-provided semantics, plus instance_of and its Turkish label
         return '
-        SELECT ?place ?placeLabel ?coordinates WHERE {
-          ?place wdt:P17 wd:Q43;             # Ülke: Türkiye
-                 wdt:P11729 _:dummy.         # P11729 niteliği mevcut olmalı
+        SELECT ?place ?placeLabel ?coordinates ?instance ?instanceLabelTR WHERE {
+          ?place wdt:P17 wd:Q43;
+                 wdt:P11729 _:dummy.
 
           OPTIONAL { ?place wdt:P5816 ?value. }
-
           FILTER(
-            !BOUND(?value) ||                # P5816 hiç yoksa
+            !BOUND(?value) ||
             ?value IN (
               wd:Q56557159, wd:Q56557591, wd:Q55555088, wd:Q60539160,
               wd:Q63065035, wd:Q75505084, wd:Q27132179, wd:Q63187954,
@@ -81,7 +80,13 @@ class WikidataSparqlService
             )
           )
 
-          OPTIONAL { ?place wdt:P625 ?coordinates. } # Koordinatlar
+          OPTIONAL { ?place wdt:P31 ?instance. }
+          OPTIONAL {
+            ?instance rdfs:label ?instanceLabelTR .
+            FILTER(LANG(?instanceLabelTR) = "tr")
+          }
+
+          OPTIONAL { ?place wdt:P625 ?coordinates. }
           SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],tr". }
         }
         ORDER BY ?place
@@ -127,17 +132,10 @@ class WikidataSparqlService
 
         $coordinates = $this->parseCoordinates($binding['coordinates']['value'] ?? null);
 
-        $imageValue = $binding['image']['value'] ?? null;
-        $imageFilename = null;
-        if ($imageValue) {
-            // Extract filename from URL or take literal
-            $parts = explode('/', $imageValue);
-            $imageFilename = urldecode(end($parts));
-            // Ensure it starts with 'File:' prefix
-            if (! str_starts_with($imageFilename, 'File:')) {
-                $imageFilename = 'File:'.$imageFilename;
-            }
-        }
+        // Instance (P31)
+        $instanceUri = $binding['instance']['value'] ?? null;
+        $instanceQid = $this->extractWikidataId($instanceUri);
+        $instanceLabelTr = $binding['instanceLabelTR']['value'] ?? null;
 
         return [
             'wikidata_id' => $wikidataId,
@@ -159,7 +157,10 @@ class WikidataSparqlService
             'wikipedia_url' => null,
             'wikidata_url' => $placeUri,
             'has_photos' => false,
-            'properties' => [],
+            'properties' => array_filter([
+                'instance_of' => $instanceQid,
+                'instance_of_label_tr' => $this->cleanLabel($instanceLabelTr),
+            ]),
         ];
     }
 
