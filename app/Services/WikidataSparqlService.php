@@ -64,32 +64,32 @@ class WikidataSparqlService
      */
     private function buildMonumentsQuery(int $offset = 0, int $limit = 1000): string
     {
-        // User-provided semantics, plus instance_of and its Turkish label
         return '
         SELECT ?place ?placeLabel ?coordinates ?instance ?instanceLabelTR WHERE {
-          ?place wdt:P17 wd:Q43;
-                 wdt:P11729 _:dummy.
-
-          OPTIONAL { ?place wdt:P5816 ?value. }
-          FILTER(
-            !BOUND(?value) ||
-            ?value IN (
-              wd:Q56557159, wd:Q56557591, wd:Q55555088, wd:Q60539160,
-              wd:Q63065035, wd:Q75505084, wd:Q27132179, wd:Q63187954,
-              wd:Q111050392, wd:Q106379705, wd:Q117841865
-            )
-          )
-
+          {
+            ?place wdt:P17 wd:Q43;
+                   wdt:P11729 ?keid.
+            FILTER NOT EXISTS { ?place wdt:P5816 ?any. }
+          }
+          UNION
+          {
+            ?place wdt:P17 wd:Q43;
+                   wdt:P11729 ?keid;
+                   wdt:P5816 ?value.
+            VALUES ?value {
+              wd:Q56557159 wd:Q56557591 wd:Q55555088 wd:Q60539160
+              wd:Q63065035 wd:Q75505084 wd:Q27132179 wd:Q63187954
+              wd:Q111050392 wd:Q106379705 wd:Q117841865
+            }
+          }
           OPTIONAL { ?place wdt:P31 ?instance. }
           OPTIONAL {
             ?instance rdfs:label ?instanceLabelTR .
             FILTER(LANG(?instanceLabelTR) = "tr")
           }
-
           OPTIONAL { ?place wdt:P625 ?coordinates. }
           SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],tr". }
         }
-        ORDER BY ?place
         LIMIT ' . $limit . ' OFFSET ' . $offset . '
         ';
     }
