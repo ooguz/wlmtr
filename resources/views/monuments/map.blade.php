@@ -357,11 +357,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 show = false;
             }
             
-            if (category && !marker.monument.categories?.some(cat => String(cat.id) === String(category))) {
+            if (category && !marker.monument.categories?.some(cat => cat.id === parseInt(category))) {
                 show = false;
             }
             
-            if (showOnlyWithoutPhotos && marker.monument.has_photos) {
+            if (showOnlyWithoutPhotos && marker.monument.photos->count() > 0) {
                 show = false;
             }
             
