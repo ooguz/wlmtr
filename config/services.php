@@ -39,8 +39,8 @@ return [
         'client_id' => env('WIKIMEDIA_CLIENT_ID'),
         'client_secret' => env('WIKIMEDIA_CLIENT_SECRET'),
         'redirect' => env('WIKIMEDIA_REDIRECT_URI'),
-        'oauth_url' => env('WIKIMEDIA_OAUTH_URL', 'https://meta.wikimedia.org/w/index.php'),
-        'api_url' => env('WIKIMEDIA_API_URL', 'https://meta.wikimedia.org/w/api.php'),
+        'oauth_url' => env('WIKIMEDIA_OAUTH_URL', 'https://meta.wikimedia.org/w/rest.php/oauth2'),
+        'api_url' => env('WIKIMEDIA_API_URL', 'https://meta.wikimedia.org/w/rest.php/oauth2'),
     ],
 
 ];
