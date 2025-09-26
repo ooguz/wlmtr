@@ -7,6 +7,9 @@
 
     <title>{{ config('app.name', 'Wiki Loves Monuments Turkey') }} - @yield('title', 'Anıtlar')</title>
 
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="https://upload.wikimedia.org/wikipedia/commons/f/f3/LUSITANA_WLM_2011_d.svg">
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
