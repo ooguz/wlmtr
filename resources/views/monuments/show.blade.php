@@ -143,7 +143,7 @@
             </div> --}}
 
             <!-- Map -->
-            @if($monument->hasCoordinates())
+         @if($monument->hasCoordinates())
                 <div class="mb-8">
                     <h2 class="text-xl font-semibold text-gray-900 mb-4">Konum</h2>
                     <div id="map" class="w-full h-64 rounded-lg"></div>
@@ -213,11 +213,13 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                         </svg>
                         <h3 class="mt-2 text-sm font-medium text-gray-900">Henüz fotoğraf yok</h3>
-                        <p class="mt-1 text-sm text-gray-500">Bu anıtın fotoğrafını çekmek için ilk siz olun!</p>
+                        <p class="mt-1 text-sm text-gray-500">Bu anıtın fotoğrafını yükleyen ilk siz olun!</p>
                     </div>
                 </div>
             @endif
         </div>
+
+        
         
         <!-- Sidebar -->
         <div class="lg:col-span-1">
@@ -232,6 +234,36 @@
                             <dd class="mt-1 text-sm text-gray-900">{{ $monument->heritage_status }}</dd>
                         </div>
                     @endif
+
+                    @if($monument->description_tr)
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Açıklama</dt>
+                            <dd class="mt-1 text-sm text-gray-900">{{ $monument->description_tr }}</dd>
+                        </div>
+                    @endif
+
+                    @if($monument->location_hierarchy_tr)
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Konum</dt>
+                            <dd class="mt-1 text-sm text-gray-900">{{ $monument->location_hierarchy_tr }}</dd>
+                        </div>
+                    @endif
+
+                    @if($monument->address)
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Adres</dt>
+                            <dd class="mt-1 text-sm text-gray-900">{{ $monument->address }}</dd>
+                        </div>
+                    @endif
+
+                    @if($monument->category)
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Kategori</dt>
+                            <dd class="mt-1 text-sm text-gray-900">{{ $monument->category }}</dd>
+                        </div>
+                    @endif
+
+                
                     
                     @if($monument->construction_date)
                         <div>

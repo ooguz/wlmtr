@@ -184,7 +184,7 @@ class WikimediaAuthController extends Controller
         $user = Auth::user();
 
         if (! $user || ! $user->isWikimediaConnected()) {
-            return redirect()->route('profile')
+            return redirect()->route('auth.profile')
                 ->withErrors(['wikimedia' => 'User is not connected to Wikimedia.']);
         }
 
@@ -203,11 +203,11 @@ class WikimediaAuthController extends Controller
             if ($userData) {
                 $this->updateUserWikimediaData($user, $userData);
 
-                return redirect()->route('profile')
+                return redirect()->route('auth.profile')
                     ->with('success', 'Wikimedia data synced successfully.');
             }
 
-            return redirect()->route('profile')
+            return redirect()->route('auth.profile')
                 ->withErrors(['wikimedia' => 'Failed to sync Wikimedia data.']);
 
         } catch (\Exception $e) {
@@ -216,7 +216,7 @@ class WikimediaAuthController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
-            return redirect()->route('profile')
+            return redirect()->route('auth.profile')
                 ->withErrors(['wikimedia' => 'Failed to sync Wikimedia data.']);
         }
     }

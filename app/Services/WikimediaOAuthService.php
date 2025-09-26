@@ -50,6 +50,7 @@ class WikimediaOAuthService extends AbstractProvider
         $response = $this->getHttpClient()->get($this->userUrl, [
             'headers' => [
                 'Authorization' => 'Bearer '.$token,
+                'User-Agent' => config('services.wikimedia.user_agent', 'WLM-TR/1.0'),
             ],
         ]);
 
@@ -113,5 +114,15 @@ class WikimediaOAuthService extends AbstractProvider
         $fields['code_verifier'] = session()->pull('wikimedia_pkce_verifier');
 
         return $fields;
+    }
+
+    /**
+     * Get the HTTP client instance with custom User-Agent.
+     */
+    protected function getHttpClient()
+    {
+        return parent::getHttpClient()->withHeaders([
+            'User-Agent' => config('services.wikimedia.user_agent', 'WLM-TR/1.0'),
+        ]);
     }
 }
