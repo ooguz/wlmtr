@@ -15,14 +15,14 @@ class HydrateMonumentsFromWikidata extends Command
      *
      * @var string
      */
-    protected $signature = 'monuments:hydrate-missing {--q=} {--limit=200} {--update-existing}';
+    protected $signature = 'monuments:hydrate-missing {--q=} {--limit=200} {--update-existing} {--delay=500}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Hydrate monument fields (descriptions, aliases, commons category, kulturenvanteri ID) from Wikidata entity JSON';
+    protected $description = 'Hydrate monument fields (descriptions, aliases, commons category, kulturenvanteri ID) from Wikidata entity JSON with retry logic and rate limiting';
 
     /**
      * Execute the console command.
@@ -32,6 +32,7 @@ class HydrateMonumentsFromWikidata extends Command
         $qcode = (string) $this->option('q');
         $limit = (int) $this->option('limit');
         $updateExisting = $this->option('update-existing');
+        $delay = (int) $this->option('delay'); // milliseconds
 
         $query = Monument::query();
         if ($qcode !== '') {
@@ -57,7 +58,12 @@ class HydrateMonumentsFromWikidata extends Command
         $this->info('Hydrating '.$monuments->count().' monument(s)');
 
         $updated = 0;
-        foreach ($monuments as $monument) {
+        $failed = 0;
+        $total = $monuments->count();
+        
+        foreach ($monuments as $index => $monument) {
+            $progress = $index + 1;
+            $this->line("Processing {$progress}/{$total}: {$monument->wikidata_id}");
             try {
                 if (! $monument->wikidata_id) {
                     continue;
@@ -65,11 +71,8 @@ class HydrateMonumentsFromWikidata extends Command
 
                 $entity = WikidataSparqlService::getEntityData($monument->wikidata_id);
                 if (! is_array($entity) || empty($entity)) {
-                    if (is_string($entity) && str_contains($entity, 'error')) {
-                        $this->warn('Error fetching '.$monument->wikidata_id.': '.$entity);
-                        continue;
-                    }
                     $this->warn('No entity for '.$monument->wikidata_id);
+                    $failed++;
 
                     continue;
                 }
@@ -94,16 +97,20 @@ class HydrateMonumentsFromWikidata extends Command
                 $monument->save();
                 $updated++;
                 $this->line('✓ '.$monument->wikidata_id.' updated');
+                
+                // Add a small delay to avoid overwhelming Wikidata API
+                usleep($delay * 1000); // Convert milliseconds to microseconds
             } catch (\Throwable $e) {
                 Log::error('Hydration failed', [
                     'wikidata_id' => $monument->wikidata_id,
                     'error' => $e->getMessage(),
                 ]);
                 $this->warn('! Failed '.$monument->wikidata_id.': '.$e->getMessage());
+                $failed++;
             }
         }
 
-        $this->info('Done. Updated '.$updated.' monument(s).');
+        $this->info('Done. Updated '.$updated.' monument(s), failed '.$failed.' monument(s).');
 
         return 0;
     }
