@@ -49,11 +49,14 @@ class SyncAllMonumentData implements ShouldQueue
         $updatedCount = 0;
         $errorCount = 0;
 
-        // Get monuments that need updates (missing location or descriptions)
+        // Get monuments that need updates (missing location, descriptions, or other fields)
         $monuments = Monument::where(function ($query) {
                 $query->whereNull('location_hierarchy_tr')
                       ->orWhereNull('description_tr')
-                      ->orWhereNull('description_en');
+                      ->orWhereNull('description_en')
+                      ->orWhereNull('aka')
+                      ->orWhereNull('kulturenvanteri_id')
+                      ->orWhereNull('commons_category');
             })
             ->whereNotNull('wikidata_id')
             ->orderBy('last_synced_at')
@@ -103,6 +106,44 @@ class SyncAllMonumentData implements ShouldQueue
                     }
                 }
 
+                // Update aliases if missing
+                if (empty($monument->aka) && isset($entityData['aliases']['tr'])) {
+                    $aliasesTr = [];
+                    foreach ($entityData['aliases']['tr'] as $alias) {
+                        if (isset($alias['value'])) {
+                            $aliasesTr[] = (string) $alias['value'];
+                        }
+                    }
+                    if (!empty($aliasesTr)) {
+                        $updateData['aka'] = implode(', ', $aliasesTr);
+                        $hasUpdates = true;
+                    }
+                }
+
+                // Update Kültür Envanteri ID if missing
+                if (empty($monument->kulturenvanteri_id) && isset($entityData['claims']['P11729'])) {
+                    foreach ($entityData['claims']['P11729'] as $claim) {
+                        $value = $claim['mainsnak']['datavalue']['value'] ?? null;
+                        if (is_string($value)) {
+                            $updateData['kulturenvanteri_id'] = $value;
+                            $hasUpdates = true;
+                            break;
+                        }
+                    }
+                }
+
+                // Update Commons category if missing
+                if (empty($monument->commons_category) && isset($entityData['claims']['P373'])) {
+                    foreach ($entityData['claims']['P373'] as $claim) {
+                        $value = $claim['mainsnak']['datavalue']['value'] ?? null;
+                        if (is_string($value)) {
+                            $updateData['commons_category'] = $value;
+                            $hasUpdates = true;
+                            break;
+                        }
+                    }
+                }
+
                 // Update last_synced_at
                 $updateData['last_synced_at'] = now();
 
@@ -119,6 +160,15 @@ class SyncAllMonumentData implements ShouldQueue
                     }
                     if (isset($updateData['description_en'])) {
                         $updateInfo[] = "EN Desc: " . substr($updateData['description_en'], 0, 30) . "...";
+                    }
+                    if (isset($updateData['aka'])) {
+                        $updateInfo[] = "AKA: " . substr($updateData['aka'], 0, 30) . "...";
+                    }
+                    if (isset($updateData['kulturenvanteri_id'])) {
+                        $updateInfo[] = "KE ID: " . $updateData['kulturenvanteri_id'];
+                    }
+                    if (isset($updateData['commons_category'])) {
+                        $updateInfo[] = "Commons: " . $updateData['commons_category'];
                     }
                     
                     Log::debug("Updated monument {$monument->id}: " . implode(', ', $updateInfo));

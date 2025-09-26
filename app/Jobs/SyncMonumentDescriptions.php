@@ -43,77 +43,129 @@ class SyncMonumentDescriptions implements ShouldQueue
      */
     public function handle(): void
     {
-        Log::info('Starting monument description synchronization');
+        Log::info('Starting monument detailed data synchronization');
 
         $service = new WikidataSparqlService();
         $updatedCount = 0;
         $errorCount = 0;
 
-        // Get monuments without descriptions, ordered by last_synced_at
-        $monuments = Monument::whereNull('description_tr')
-            ->whereNull('description_en')
+        // Get monuments without descriptions, aliases, or other missing fields
+        $monuments = Monument::where(function ($query) {
+                $query->whereNull('description_tr')
+                    ->orWhereNull('description_en')
+                    ->orWhereNull('aka')
+                    ->orWhereNull('kulturenvanteri_id')
+                    ->orWhereNull('commons_category');
+            })
             ->whereNotNull('wikidata_id')
             ->orderBy('last_synced_at')
             ->limit($this->batchSize)
             ->get();
 
         if ($monuments->isEmpty()) {
-            Log::info('No monuments need description synchronization');
+            Log::info('No monuments need detailed data synchronization');
             return;
         }
 
-        Log::info("Processing {$monuments->count()} monuments for description sync");
+        Log::info("Processing {$monuments->count()} monuments for detailed data sync");
 
         foreach ($monuments as $monument) {
             try {
                 $entityData = $service->getEntityData($monument->wikidata_id);
                 
-                if ($entityData && isset($entityData['descriptions'])) {
-                    $descriptions = $entityData['descriptions'];
-                    
+                if ($entityData) {
                     $updateData = [];
                     
-                    // Extract Turkish description
-                    if (isset($descriptions['tr']['value'])) {
-                        $updateData['description_tr'] = $descriptions['tr']['value'];
+                    // Extract descriptions
+                    if (isset($entityData['descriptions'])) {
+                        $descriptions = $entityData['descriptions'];
+                        
+                        // Extract Turkish description
+                        if (isset($descriptions['tr']['value'])) {
+                            $updateData['description_tr'] = $descriptions['tr']['value'];
+                        }
+                        
+                        // Extract English description
+                        if (isset($descriptions['en']['value'])) {
+                            $updateData['description_en'] = $descriptions['en']['value'];
+                        }
                     }
                     
-                    // Extract English description
-                    if (isset($descriptions['en']['value'])) {
-                        $updateData['description_en'] = $descriptions['en']['value'];
+                    // Extract aliases (TR)
+                    if (isset($entityData['aliases']['tr'])) {
+                        $aliasesTr = [];
+                        foreach ($entityData['aliases']['tr'] as $alias) {
+                            if (isset($alias['value'])) {
+                                $aliasesTr[] = (string) $alias['value'];
+                            }
+                        }
+                        if (!empty($aliasesTr)) {
+                            $updateData['aka'] = implode(', ', $aliasesTr);
+                        }
+                    }
+                    
+                    // Extract P11729 (Kültür Envanteri ID)
+                    if (isset($entityData['claims']['P11729'])) {
+                        foreach ($entityData['claims']['P11729'] as $claim) {
+                            $value = $claim['mainsnak']['datavalue']['value'] ?? null;
+                            if (is_string($value)) {
+                                $updateData['kulturenvanteri_id'] = $value;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Extract P373 (Commons category)
+                    if (isset($entityData['claims']['P373'])) {
+                        foreach ($entityData['claims']['P373'] as $claim) {
+                            $value = $claim['mainsnak']['datavalue']['value'] ?? null;
+                            if (is_string($value)) {
+                                $updateData['commons_category'] = $value;
+                                break;
+                            }
+                        }
                     }
                     
                     if (!empty($updateData)) {
                         $monument->update($updateData);
                         $updatedCount++;
                         
-                        $descInfo = [];
+                        $updateInfo = [];
                         if (isset($updateData['description_tr'])) {
-                            $descInfo[] = "TR: " . substr($updateData['description_tr'], 0, 50) . "...";
+                            $updateInfo[] = "TR desc: " . substr($updateData['description_tr'], 0, 30) . "...";
                         }
                         if (isset($updateData['description_en'])) {
-                            $descInfo[] = "EN: " . substr($updateData['description_en'], 0, 50) . "...";
+                            $updateInfo[] = "EN desc: " . substr($updateData['description_en'], 0, 30) . "...";
+                        }
+                        if (isset($updateData['aka'])) {
+                            $updateInfo[] = "AKA: " . substr($updateData['aka'], 0, 30) . "...";
+                        }
+                        if (isset($updateData['kulturenvanteri_id'])) {
+                            $updateInfo[] = "KE ID: " . $updateData['kulturenvanteri_id'];
+                        }
+                        if (isset($updateData['commons_category'])) {
+                            $updateInfo[] = "Commons: " . $updateData['commons_category'];
                         }
                         
-                        Log::debug("Updated descriptions for monument {$monument->id}: " . implode(', ', $descInfo));
+                        Log::debug("Updated monument {$monument->id}: " . implode(', ', $updateInfo));
                     } else {
-                        Log::debug("No descriptions found for monument {$monument->id} (Wikidata: {$monument->wikidata_id})");
+                        Log::debug("No new data found for monument {$monument->id} (Wikidata: {$monument->wikidata_id})");
                     }
                 } else {
                     Log::debug("No entity data found for monument {$monument->id} (Wikidata: {$monument->wikidata_id})");
                 }
             } catch (\Throwable $e) {
                 $errorCount++;
-                Log::warning("Failed to sync descriptions for monument {$monument->id}: {$e->getMessage()}");
+                Log::warning("Failed to sync detailed data for monument {$monument->id}: {$e->getMessage()}");
             }
         }
 
-        Log::info("Description sync completed: {$updatedCount} updated, {$errorCount} errors");
+        Log::info("Detailed data sync completed: {$updatedCount} updated, {$errorCount} errors");
 
         // If we processed a full batch, dispatch another job to continue
         if ($monuments->count() === $this->batchSize) {
             self::dispatch()->delay(now()->addMinutes(10));
-            Log::info('Dispatched next description sync job');
+            Log::info('Dispatched next detailed data sync job');
         }
     }
 
@@ -122,6 +174,6 @@ class SyncMonumentDescriptions implements ShouldQueue
      */
     public function failed(\Throwable $exception): void
     {
-        Log::error("Monument description sync job failed: {$exception->getMessage()}");
+        Log::error("Monument detailed data sync job failed: {$exception->getMessage()}");
     }
 }
