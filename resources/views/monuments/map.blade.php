@@ -361,7 +361,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 show = false;
             }
             
-            if (showOnlyWithoutPhotos && marker.monument.photos.count() > 0) {
+            if (showOnlyWithoutPhotos && marker.monument.photos.length > 0) {
                 show = false;
             }
             
