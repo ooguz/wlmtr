@@ -17,7 +17,7 @@
     <div id="map" class="w-full h-full"></div>
     
     <!-- Search Panel - hidden on mobile by default; opened via mobile search toggle -->
-    <div id="searchPanel" class="absolute top-4 left-4 z-20 bg-white rounded-lg shadow-lg p-4 w-80 max-h-[calc(100vh-8rem)] overflow-y-auto hidden md:block">
+    <div id="searchPanel" class="absolute top-4 left-4 z-20 bg-white rounded-lg shadow-lg p-4 w-80 max-h-[calc(120vh-8rem)] overflow-y-auto hidden md:block">
         <h3 class="text-lg font-semibold mb-4">Anıt Ara</h3>
         
         <!-- Search Input -->
@@ -885,13 +885,18 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 #monumentInfo {
-    z-index: 1500 !important;
+    z-index: 2500 !important;
+    position: fixed !important;
+}
+
+#mobileSearchToggle {
+    z-index: 2999 !important;
     position: fixed !important;
 }
 
 /* Ensure floating nav cards stay on top */
 .floating-nav-cards {
-    z-index: 3000 !important;
+    z-index: 2400 !important;
     position: fixed !important;
 }
 
