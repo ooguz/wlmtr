@@ -16,8 +16,8 @@
     <!-- Map Container -->
     <div id="map" class="w-full h-full"></div>
     
-    <!-- Search Panel -->
-    <div id="searchPanel" class="absolute top-4 left-4 z-20 bg-white rounded-lg shadow-lg p-4 w-80 max-h-[calc(100vh-8rem)] overflow-y-auto">
+    <!-- Search Panel - Hidden on mobile by default -->
+    <div id="searchPanel" class="absolute top-4 left-4 z-20 bg-white rounded-lg shadow-lg p-4 w-80 max-h-[calc(100vh-8rem)] overflow-y-auto hidden md:block">
         <h3 class="text-lg font-semibold mb-4">Anıt Ara</h3>
         
         <!-- Search Input -->
@@ -46,14 +46,14 @@
                 </select>
             </div>
             
-            <!-- Photo Filter -->
+            <!-- Photo Status Toggle -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Fotoğraf Durumu</label>
-                <select id="photoFilter" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="">Tümü</option>
-                    <option value="1">Fotoğraflı</option>
-                    <option value="0">Fotoğrafsız</option>
-                </select>
+                <label class="flex items-center space-x-3">
+                    <input type="checkbox" 
+                           id="photoToggle" 
+                           class="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                    <span class="text-sm font-medium text-gray-700">Sadece fotoğrafı olmayanları göster</span>
+                </label>
             </div>
             
             <!-- Distance Filter -->
@@ -86,7 +86,15 @@
         </button>
     </div>
 
-    <!-- Floating Nav Cards -->
+    <!-- Mobile Search Button - Fixed positioning to be visible -->
+    <button id="mobileSearchToggle" 
+            class="md:hidden fixed top-4 left-4 z-30 bg-blue-600 text-white p-3 rounded-lg shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+        </svg>
+    </button>
+
+    <!-- Floating Nav Cards - Positioned to avoid zoom controls -->
     <div class="floating-nav-cards absolute top-4 right-4 z-30 flex flex-col gap-3">
         <a href="{{ route('monuments.list') }}" class="bg-white/90 backdrop-blur rounded-xl shadow-md px-4 py-3 hover:bg-white">
             <div class="flex items-center gap-2">
@@ -239,20 +247,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const searchPanel = document.getElementById('searchPanel');
     const closeSearchPanel = document.getElementById('closeSearchPanel');
     
-    // Hide search panel on mobile by default
-    if (window.innerWidth < 768) {
-        searchPanel.classList.add('hidden');
-    }
-    
     if (mobileSearchToggle) {
         mobileSearchToggle.addEventListener('click', function() {
-            searchPanel.classList.toggle('hidden');
+            searchPanel.classList.remove('hidden');
+            searchPanel.classList.add('mobile-open');
         });
     }
     
     if (closeSearchPanel) {
         closeSearchPanel.addEventListener('click', function() {
             searchPanel.classList.add('hidden');
+            searchPanel.classList.remove('mobile-open');
         });
     }
     
@@ -279,7 +284,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('searchInput');
     const provinceFilter = document.getElementById('provinceFilter');
     const categoryFilter = document.getElementById('categoryFilter');
-    const photoFilter = document.getElementById('photoFilter');
+    const photoToggle = document.getElementById('photoToggle');
     const distanceFilter = document.getElementById('distanceFilter');
     const distanceValue = document.getElementById('distanceValue');
     const locationBtn = document.getElementById('locationBtn');
@@ -289,17 +294,23 @@ document.addEventListener('DOMContentLoaded', function() {
         distanceValue.textContent = this.value + 'km';
     });
     
-    // Search and filter
+    // Search and filter - Fixed to refresh clusters properly
     function applyFilters() {
-        const searchTerm = searchInput.value;
+        const searchTerm = searchInput.value.toLowerCase();
         const province = provinceFilter.value;
         const category = categoryFilter.value;
-        const hasPhotos = photoFilter.value;
+        const showOnlyWithoutPhotos = photoToggle.checked;
+        
+        // Clear existing markers from cluster
+        markerCluster.clearLayers();
+        
+        const visibleMarkers = [];
         
         markers.forEach(marker => {
             let show = true;
             
-            if (searchTerm && !marker.monument.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+            if (searchTerm && !marker.monument.name.toLowerCase().includes(searchTerm) && 
+                !marker.monument.description?.toLowerCase().includes(searchTerm)) {
                 show = false;
             }
             
@@ -311,22 +322,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 show = false;
             }
             
-            if (hasPhotos !== '' && marker.monument.has_photos !== (hasPhotos === '1')) {
+            if (showOnlyWithoutPhotos && marker.monument.has_photos) {
                 show = false;
             }
             
             if (show) {
-                marker.addTo(map);
-            } else {
-                marker.remove();
+                visibleMarkers.push(marker);
             }
         });
+        
+        // Add visible markers back to cluster
+        markerCluster.addLayers(visibleMarkers);
     }
     
     searchInput.addEventListener('input', applyFilters);
     provinceFilter.addEventListener('change', applyFilters);
     categoryFilter.addEventListener('change', applyFilters);
-    photoFilter.addEventListener('change', applyFilters);
+    photoToggle.addEventListener('change', applyFilters);
     
     // Location functionality
     locationBtn.addEventListener('click', function() {
@@ -734,9 +746,13 @@ document.addEventListener('DOMContentLoaded', function() {
     line-height: 30px;
 }
 
-/* Ensure panels stay on top during map interactions */
+/* Map control positioning - Move zoom to left bottom to avoid floating cards */
 .leaflet-control-zoom {
     z-index: 1000 !important;
+    left: 10px !important;
+    right: auto !important;
+    bottom: 20px !important;
+    top: auto !important;
 }
 
 .leaflet-control-attribution {
@@ -758,10 +774,36 @@ document.addEventListener('DOMContentLoaded', function() {
     text-decoration: underline !important;
 }
 
-/* Prevent panels from being hidden during map zoom */
+/* Panel positioning */
 #searchPanel {
     z-index: 2000 !important;
-    position: fixed !important;
+}
+
+/* Mobile search panel full screen overlay */
+@media (max-width: 768px) {
+    #searchPanel.mobile-open {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        max-height: none !important;
+        border-radius: 0 !important;
+        z-index: 3000 !important;
+    }
+    
+    .floating-nav-cards {
+        right: 10px !important;
+        top: 10px !important;
+    }
+    
+    /* Adjust mobile search button spacing */
+    #mobileSearchToggle {
+        top: 10px !important;
+        left: 10px !important;
+    }
 }
 
 #monumentInfo {
