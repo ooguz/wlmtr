@@ -522,7 +522,7 @@ SPARQL;
         $url = 'https://www.wikidata.org/wiki/Special:EntityData/'.$qcode.'.json';
 
         try {
-            $response = \Illuminate\Support\Facades\Http::timeout(8)->withHeaders([
+            $response = \Illuminate\Support\Facades\Http::timeout(10)->withHeaders([
                 'User-Agent' => self::USER_AGENT,
             ])->get($url, [
                 // Include Turkish and English; Special:EntityData already returns all, but this is future-proof
@@ -536,9 +536,13 @@ SPARQL;
                 if (is_array($entity)) {
                     return $entity;
                 }
+            } elseif ($response->status() === 429) {
+                // Rate limited - return null to let caller handle delay
+                \Illuminate\Support\Facades\Log::warning("Rate limited for {$qcode}");
+                return null;
             }
         } catch (\Throwable $e) {
-            // Soft-fail; caller can ignore
+            \Illuminate\Support\Facades\Log::warning("Exception fetching {$qcode}: {$e->getMessage()}");
         }
 
         return null;
