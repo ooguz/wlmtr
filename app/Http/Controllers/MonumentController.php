@@ -106,7 +106,7 @@ class MonumentController extends Controller
      */
     public function apiMapMarkers(Request $request): JsonResponse
     {
-        $query = Monument::query()
+        $query = Monument::with(['categories'])
             ->select(['id', 'wikidata_id', 'name_tr', 'name_en', 'description_tr', 'description_en', 'latitude', 'longitude', 'has_photos', 'photo_count', 'province', 'city', 'district', 'location_hierarchy_tr'])
             ->whereNotNull('latitude')
             ->whereNotNull('longitude');

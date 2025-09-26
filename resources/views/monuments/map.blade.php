@@ -357,7 +357,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 show = false;
             }
             
-            if (category && !marker.monument.categories?.some(cat => cat.id === parseInt(category))) {
+            if (category && marker.monument.categories?.length > 0 && !marker.monument.categories.some(cat => cat.id === parseInt(category))) {
+                console.log('Filtering out monument:', marker.monument.name, 'Categories:', marker.monument.categories, 'Selected category:', category);
                 show = false;
             }
             
@@ -372,6 +373,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Add visible markers back to cluster
         markerCluster.addLayers(visibleMarkers);
+        
+        console.log('Filter applied - Total markers:', markers.length, 'Visible markers:', visibleMarkers.length, 'Category filter:', category);
 
         updateClearButtonVisibility();
         // Close search panel on mobile to reveal map
