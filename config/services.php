@@ -41,6 +41,7 @@ return [
         'redirect' => env('WIKIMEDIA_REDIRECT_URI'),
         'oauth_url' => env('WIKIMEDIA_OAUTH_URL', 'https://meta.wikimedia.org/w/rest.php/oauth2'),
         'api_url' => env('WIKIMEDIA_API_URL', 'https://meta.wikimedia.org/w/rest.php/oauth2'),
+        'user_agent' => env('WIKIMEDIA_USER_AGENT', 'WLM-TR/1.0 (+https://meta.wikimedia.org/wiki/User_talk:Magurale)'),
     ],
 
 ];

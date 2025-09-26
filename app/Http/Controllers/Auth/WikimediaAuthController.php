@@ -38,7 +38,7 @@ class WikimediaAuthController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
-            return redirect()->route('login')
+            return redirect()->route('auth.login')
                 ->withErrors(['wikimedia' => 'Wikimedia authentication is currently unavailable.']);
         }
     }
@@ -63,7 +63,7 @@ class WikimediaAuthController extends Controller
             ];
 
             if (! $userData) {
-                return redirect()->route('login')
+                return redirect()->route('auth.login')
                     ->withErrors(['wikimedia' => 'Failed to authenticate with Wikimedia.']);
             }
 
@@ -90,7 +90,7 @@ class WikimediaAuthController extends Controller
                 'callback_data' => $request->all(),
             ]);
 
-            return redirect()->route('login')
+            return redirect()->route('auth.login')
                 ->withErrors(['wikimedia' => 'Authentication failed. Please try again.']);
         }
     }
