@@ -49,7 +49,7 @@ class WikimediaAuthController extends Controller
     public function handleWikimediaCallback(Request $request): RedirectResponse
     {
         try {
-            $socialiteUser = Socialite::driver('wikimedia')->stateless()->user();
+            $socialiteUser = Socialite::driver('wikimedia')->user();
 
             $userData = [
                 'wikimedia_id' => $socialiteUser->getId(),
