@@ -234,9 +234,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Add OpenStreetMap tiles
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors | © <a href="https://leafletjs.com/" target="_blank">Leaflet</a> | <a href="https://commons.wikimedia.org/wiki/Category:Wiki_Loves_Monuments_Turkey" target="_blank">Wikimedia Commons</a> | Made with ❤️ by <a href="https://github.com/m3rcury" target="_blank">m3rcury</a>'
+        attribution: '© OpenStreetMap contributors | © <a href="https://leafletjs.com/" target="_blank">Leaflet</a> | <a href="https://commons.wikimedia.org/wiki/Category:Wiki_Loves_Monuments_Turkey" target="_blank">Wikimedia Commons</a> | Made with ❤️ by <a href="https://github.com/ooguz" target="_blank">ooguz</a>'
     }).addTo(map);
-    
+
     // Force zoom control positioning after map initialization
     setTimeout(() => {
         const zoomControl = document.querySelector('.leaflet-control-zoom');
@@ -264,6 +264,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const searchPanel = document.getElementById('searchPanel');
     const closeSearchPanel = document.getElementById('closeSearchPanel');
     const mobileSearchToggle = document.getElementById('mobileSearchToggle');
+    // Track search panel visibility before opening info panel (for proper restore on close)
+    let searchPanelWasVisibleBeforeInfo = false;
+    let searchPanelWasMobileOpenBeforeInfo = false;
     
     if (mobileSearchToggle) {
         mobileSearchToggle.addEventListener('click', function() {
@@ -628,8 +631,11 @@ document.addEventListener('DOMContentLoaded', function() {
         
         infoPanel.classList.remove('hidden');
         
-        // Hide search panel when monument info is shown to avoid overlap
+        // Remember current search panel state, then hide it to avoid overlap
+        searchPanelWasVisibleBeforeInfo = !searchPanel.classList.contains('hidden');
+        searchPanelWasMobileOpenBeforeInfo = searchPanel.classList.contains('mobile-open');
         searchPanel.classList.add('hidden');
+        searchPanel.classList.remove('mobile-open');
         
         // On mobile, make info panel full screen
         if (window.innerWidth < 768) {
@@ -763,8 +769,20 @@ document.addEventListener('DOMContentLoaded', function() {
         const infoPanel = document.getElementById('monumentInfo');
         infoPanel.classList.add('hidden');
         infoPanel.classList.remove('mobile-open');
-        // Show search panel again when monument info is closed
-        searchPanel.classList.remove('hidden');
+        // Restore search panel to its previous state (do not force open if it was closed)
+        if (searchPanelWasVisibleBeforeInfo) {
+            searchPanel.classList.remove('hidden');
+        } else {
+            searchPanel.classList.add('hidden');
+        }
+        if (searchPanelWasMobileOpenBeforeInfo) {
+            searchPanel.classList.add('mobile-open');
+        } else {
+            searchPanel.classList.remove('mobile-open');
+        }
+        // Reset flags
+        searchPanelWasVisibleBeforeInfo = false;
+        searchPanelWasMobileOpenBeforeInfo = false;
     });
     
     // Build upload wizard URL for monument
@@ -855,6 +873,8 @@ document.addEventListener('DOMContentLoaded', function() {
 #searchPanel {
     z-index: 2000 !important;
 }
+
+.leaflet-attribution-flag { display: none !important; }
 
 /* Mobile search panel and info panel full screen overlay */
 @media (max-width: 768px) {
