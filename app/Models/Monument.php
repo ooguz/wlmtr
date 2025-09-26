@@ -14,6 +14,9 @@ class Monument extends Model
         'name_en',
         'description_tr',
         'description_en',
+        'aka',
+        'kulturenvanteri_id',
+        'commons_category',
         'latitude',
         'longitude',
         'address',
@@ -226,6 +229,18 @@ class Monument extends Model
         }
 
         return null;
+    }
+
+    /**
+     * Get Commons category URL from commons_category field.
+     */
+    public function getCommonsCategoryUrlAttribute(): ?string
+    {
+        if (! $this->commons_category) {
+            return null;
+        }
+
+        return "https://commons.wikimedia.org/wiki/Category:{$this->commons_category}";
     }
 
     /**

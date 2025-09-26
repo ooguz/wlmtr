@@ -33,10 +33,11 @@ class WikidataSparqlService
                 $data = $response->json();
 
                 // Check if data is null or empty
-                if ($data === null || !is_array($data)) {
+                if ($data === null || ! is_array($data)) {
                     Log::warning('Wikidata SPARQL query returned null or invalid data', [
                         'response_body' => $response->body(),
                     ]);
+
                     return [];
                 }
 
@@ -65,7 +66,7 @@ class WikidataSparqlService
     private function buildMonumentsQuery(int $offset = 0, int $limit = 1000): string
     {
         return '
-        SELECT ?place ?placeLabel ?coordinates ?instance ?instanceLabelTR WHERE {
+        SELECT ?place ?placeLabel ?coordinates ?instance ?instanceLabelTR ?keid WHERE {
           {
             ?place wdt:P17 wd:Q43;
                    wdt:P11729 ?keid.
@@ -90,7 +91,7 @@ class WikidataSparqlService
           OPTIONAL { ?place wdt:P625 ?coordinates. }
           SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],tr". }
         }
-        LIMIT ' . $limit . ' OFFSET ' . $offset . '
+        LIMIT '.$limit.' OFFSET '.$offset.'
         ';
     }
 
@@ -142,6 +143,9 @@ class WikidataSparqlService
             'name_tr' => $binding['placeLabel']['value'] ?? null,
             'description_tr' => null, // Will be filled by hydrate command
             'description_en' => null, // Will be filled by hydrate command
+            'aka' => null, // Will be filled by hydrate command
+            'kulturenvanteri_id' => $binding['keid']['value'] ?? null,
+            'commons_category' => null, // Will be filled by hydrate command
             'latitude' => $coordinates['lat'] ?? null,
             'longitude' => $coordinates['lng'] ?? null,
             'heritage_status' => null,
@@ -228,9 +232,9 @@ class WikidataSparqlService
 
         while (true) {
             Log::info("Fetching batch {$batchNumber} (offset: {$offset}, limit: {$batchSize})");
-            
+
             $monuments = $this->fetchMonuments($offset, $batchSize);
-            
+
             if (empty($monuments)) {
                 break;
             }
@@ -269,10 +273,10 @@ class WikidataSparqlService
 
             $totalSynced += $syncedCount;
             Log::info("Batch {$batchNumber} completed: {$syncedCount} monuments synced");
-            
+
             $offset += $batchSize;
             $batchNumber++;
-            
+
             // Add a small delay to avoid overwhelming Wikidata
             sleep(2);
 
@@ -571,7 +575,7 @@ SPARQL;
 
                 foreach ($data['results']['bindings'] ?? [] as $binding) {
                     $label = $binding['provinceLabel']['value'] ?? null;
-                    if ($label && !str_starts_with($label, 'http')) {
+                    if ($label && ! str_starts_with($label, 'http')) {
                         $provinces[] = $label;
                     }
                 }
@@ -621,7 +625,7 @@ SPARQL;
                     $wikidataId = $this->extractWikidataId($binding['category']['value'] ?? '');
                     $label = $binding['categoryLabel']['value'] ?? null;
 
-                    if ($wikidataId && $label && !str_starts_with($label, 'http')) {
+                    if ($wikidataId && $label && ! str_starts_with($label, 'http')) {
                         $categories[] = [
                             'wikidata_id' => $wikidataId,
                             'name_tr' => $label,
@@ -743,17 +747,17 @@ SPARQL;
         $imageValue = $binding['image']['value'] ?? null;
         $imageFilename = null;
         $imageUrl = null;
-        
+
         if ($imageValue) {
             // Extract filename from URL
             $parts = explode('/', $imageValue);
             $imageFilename = urldecode(end($parts));
-            
+
             // Ensure it starts with 'File:' prefix
             if (! str_starts_with($imageFilename, 'File:')) {
                 $imageFilename = 'File:'.$imageFilename;
             }
-            
+
             // Generate Wikimedia Commons URLs for different sizes
             $imageUrl = $this->generateCommonsImageUrl($imageFilename);
         }
@@ -775,12 +779,12 @@ SPARQL;
     {
         // Remove 'File:' prefix if present for URL generation
         $cleanFilename = str_replace('File:', '', $filename);
-        
+
         // Proper URL encoding for Wikimedia Commons
         // Replace spaces with %20 instead of +, and handle other special characters
         $encodedFilename = str_replace(' ', '%20', $cleanFilename);
         $encodedFilename = rawurlencode($cleanFilename);
-        
+
         return [
             'thumbnail' => "https://commons.wikimedia.org/wiki/Special:FilePath/{$encodedFilename}?width=300",
             'medium' => "https://commons.wikimedia.org/wiki/Special:FilePath/{$encodedFilename}?width=800",
@@ -835,7 +839,7 @@ SPARQL;
     private function buildAllMonumentsWithImagesQuery(?int $limit = null): string
     {
         $limitClause = $limit ? "LIMIT {$limit}" : '';
-        
+
         return "
         SELECT ?item ?itemLabel ?image ?p11729 WHERE {
           ?item wdt:P11729 ?p11729;      # KE ID mevcut
@@ -887,20 +891,20 @@ SPARQL;
 
         $imageValue = $binding['image']['value'] ?? null;
         $images = [];
-        
+
         if ($imageValue) {
             // Extract filename from URL
             $parts = explode('/', $imageValue);
             $imageFilename = urldecode(end($parts));
-            
+
             // Ensure it starts with 'File:' prefix
             if (! str_starts_with($imageFilename, 'File:')) {
                 $imageFilename = 'File:'.$imageFilename;
             }
-            
+
             // Generate Wikimedia Commons URLs for different sizes
             $imageUrls = $this->generateCommonsImageUrl($imageFilename);
-            
+
             $images[] = [
                 'filename' => $imageFilename,
                 'title' => $binding['itemLabel']['value'] ?? 'Unnamed Monument',

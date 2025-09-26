@@ -15,14 +15,14 @@ class HydrateMonumentsFromWikidata extends Command
      *
      * @var string
      */
-    protected $signature = 'monuments:hydrate-missing {--q=} {--limit=200}';
+    protected $signature = 'monuments:hydrate-missing {--q=} {--limit=200} {--update-existing}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Hydrate missing monument fields (descriptions, admin area, aliases) from Wikidata entity JSON';
+    protected $description = 'Hydrate monument fields (descriptions, aliases, commons category, kulturenvanteri ID) from Wikidata entity JSON';
 
     /**
      * Execute the console command.
@@ -31,16 +31,26 @@ class HydrateMonumentsFromWikidata extends Command
     {
         $qcode = (string) $this->option('q');
         $limit = (int) $this->option('limit');
+        $updateExisting = $this->option('update-existing');
 
         $query = Monument::query();
         if ($qcode !== '') {
             $query->where('wikidata_id', $qcode);
         } else {
-            $query->where(function ($q) {
-                $q->whereNull('description_tr')
-                    ->orWhereNull('city')
-                    ->orWhereNull('province');
-            });
+            if ($updateExisting) {
+                // Update all monuments
+                $this->info('Updating all monuments (--update-existing flag set)');
+            } else {
+                // Only update monuments with missing fields
+                $query->where(function ($q) {
+                    $q->whereNull('description_tr')
+                        ->orWhereNull('aka')
+                        ->orWhereNull('kulturenvanteri_id')
+                        ->orWhereNull('commons_category')
+                        ->orWhereNull('city')
+                        ->orWhereNull('province');
+                });
+            }
         }
 
         $monuments = $query->limit($limit)->get();
@@ -118,12 +128,15 @@ class HydrateMonumentsFromWikidata extends Command
             $updates['description_en'] = $descEn;
         }
 
-        // Aliases (TR)
+        // Aliases (TR) - store as comma-separated string
         $aliasesTr = [];
         foreach ((array) Arr::get($entity, 'aliases.tr', []) as $alias) {
             if (isset($alias['value'])) {
                 $aliasesTr[] = (string) $alias['value'];
             }
+        }
+        if (! empty($aliasesTr)) {
+            $updates['aka'] = implode(', ', $aliasesTr);
         }
 
         // Claims helpers
@@ -138,6 +151,30 @@ class HydrateMonumentsFromWikidata extends Command
 
             return null;
         };
+
+        $firstStringValue = function (string $prop) use ($entity): ?string {
+            $claims = $entity['claims'][$prop] ?? [];
+            foreach ($claims as $claim) {
+                $dv = $claim['mainsnak']['datavalue']['value'] ?? null;
+                if (is_string($dv)) {
+                    return $dv;
+                }
+            }
+
+            return null;
+        };
+
+        // P11729: Kültür Envanteri ID
+        $p11729 = $firstStringValue('P11729');
+        if ($p11729) {
+            $updates['kulturenvanteri_id'] = $p11729;
+        }
+
+        // P373: Commons category
+        $p373 = $firstStringValue('P373');
+        if ($p373) {
+            $updates['commons_category'] = $p373;
+        }
 
         // P131: located in the administrative territorial entity
         $p131 = $firstItemId('P131');
@@ -158,10 +195,6 @@ class HydrateMonumentsFromWikidata extends Command
         if ($p31) {
             $updates['properties']['instance_of'] = $p31;
             $updates['properties']['instance_of_label_tr'] = WikidataSparqlService::getLabelForQCode($p31);
-        }
-
-        if (! empty($aliasesTr)) {
-            $updates['properties']['aliases_tr'] = $aliasesTr;
         }
 
         return $updates;
