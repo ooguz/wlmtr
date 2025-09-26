@@ -4,21 +4,27 @@ namespace App\Services;
 
 use Laravel\Socialite\Two\AbstractProvider;
 use Laravel\Socialite\Two\User;
-use Illuminate\Http\Request;
 
 class WikimediaOAuthService extends AbstractProvider
 {
     /**
      * The Wikimedia OAuth endpoints.
      */
-    protected $authUrl = 'https://meta.wikimedia.org/w/index.php';
-    protected $tokenUrl = 'https://meta.wikimedia.org/w/index.php';
-    protected $userUrl = 'https://meta.wikimedia.org/w/api.php';
+    protected $authUrl = 'https://meta.wikimedia.org/w/rest.php/oauth2/authorize';
+
+    protected $tokenUrl = 'https://meta.wikimedia.org/w/rest.php/oauth2/access_token';
+
+    protected $userUrl = 'https://meta.wikimedia.org/w/rest.php/oauth2/resource/profile';
 
     /**
      * The scopes being requested.
      */
-    protected $scopes = ['userinfo', 'edit'];
+    protected $scopes = [];
+
+    /**
+     * The scope separator.
+     */
+    protected $scopeSeparator = ' ';
 
     /**
      * Get the authentication URL for the provider.
@@ -43,12 +49,7 @@ class WikimediaOAuthService extends AbstractProvider
     {
         $response = $this->getHttpClient()->get($this->userUrl, [
             'headers' => [
-                'Authorization' => 'Bearer ' . $token,
-            ],
-            'query' => [
-                'action' => 'query',
-                'meta' => 'userinfo',
-                'format' => 'json',
+                'Authorization' => 'Bearer '.$token,
             ],
         ]);
 
@@ -61,11 +62,11 @@ class WikimediaOAuthService extends AbstractProvider
     protected function mapUserToObject(array $user)
     {
         return (new User)->setRaw($user)->map([
-            'id' => $user['userid'] ?? null,
-            'nickname' => $user['name'] ?? null,
-            'name' => $user['realname'] ?? $user['name'] ?? null,
+            'id' => $user['userid'] ?? $user['id'] ?? $user['sub'] ?? null,
+            'nickname' => $user['username'] ?? $user['name'] ?? null,
+            'name' => $user['realname'] ?? $user['username'] ?? $user['name'] ?? null,
             'email' => $user['email'] ?? null,
-            'avatar' => null, // Wikimedia doesn't provide avatar URLs
+            'avatar' => null,
         ]);
     }
 
@@ -94,7 +95,7 @@ class WikimediaOAuthService extends AbstractProvider
             'state' => $state,
         ]);
 
-        return $url . '?' . $query;
+        return $url.'?'.$query;
     }
 
     /**
@@ -168,6 +169,6 @@ class WikimediaOAuthService extends AbstractProvider
     {
         // This is a simplified implementation
         // In a real implementation, you would need to build the proper signature base string
-        return $this->clientId . $this->clientSecret . time();
+        return $this->clientId.$this->clientSecret.time();
     }
-} 
+}
