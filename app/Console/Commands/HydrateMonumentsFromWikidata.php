@@ -64,7 +64,7 @@ class HydrateMonumentsFromWikidata extends Command
                 }
 
                 $entity = WikidataSparqlService::getEntityData($monument->wikidata_id);
-                if (! is_array($entity)) {
+                if (! is_array($entity) || empty($entity)) {
                     $this->warn('No entity for '.$monument->wikidata_id);
 
                     continue;
