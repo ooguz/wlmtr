@@ -150,7 +150,7 @@
                             <span>{{ $monument->photo_count }} fotoğraf</span>
                         </div>
                         
-                        @if($monument->has_photos)
+                        @if($monument->photos->count() > 0)
                             <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                 Fotoğraflı
                             </span>
