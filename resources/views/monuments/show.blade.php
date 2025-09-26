@@ -472,9 +472,10 @@
     function openDetailPhotoModal(imageUrl, commonsUrl, title, photographer, license) {
         const modal = document.createElement('div');
         modal.className = 'fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50';
+        modal.style.zIndex = '9000';
         modal.innerHTML = `
+            <button onclick="this.parentElement.remove()" class="absolute top-4 right-4 text-white text-3xl hover:text-gray-300">&times;</button>
             <div class="relative max-w-6xl max-h-full p-4">
-                <button onclick="this.parentElement.parentElement.remove()" class="absolute top-4 right-4 text-white text-3xl hover:text-gray-300">&times;</button>
                 <div class="text-center">
                     <img src="${imageUrl}" alt="${title}" class="max-w-full max-h-[80vh] object-contain mx-auto">
                     <div class="mt-4 text-white">
