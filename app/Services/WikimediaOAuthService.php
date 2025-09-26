@@ -82,7 +82,7 @@ class WikimediaOAuthService extends AbstractProvider
      * Get the code fields for the authentication URL.
      * Remove empty scope to satisfy providers that reject blank scope values.
      */
-    protected function getCodeFields($state)
+    protected function getCodeFields($state = null)
     {
         $fields = parent::getCodeFields($state);
 
