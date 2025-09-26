@@ -16,8 +16,8 @@
     <!-- Map Container -->
     <div id="map" class="w-full h-full"></div>
     
-    <!-- Search Panel - Hidden on mobile by default -->
-    <div id="searchPanel" class="absolute top-4 left-4 z-20 bg-white rounded-lg shadow-lg p-4 w-80 max-h-[calc(100vh-8rem)] overflow-y-auto hidden md:block">
+    <!-- Search Panel - Visible on mobile by default -->
+    <div id="searchPanel" class="absolute top-4 left-4 z-20 bg-white rounded-lg shadow-lg p-4 w-80 max-h-[calc(100vh-8rem)] overflow-y-auto md:block">
         <h3 class="text-lg font-semibold mb-4">Anıt Ara</h3>
         
         <!-- Search Input -->
@@ -86,13 +86,6 @@
         </button>
     </div>
 
-    <!-- Mobile Search Button - Fixed positioning to be visible -->
-    <button id="mobileSearchToggle" 
-            class="md:hidden fixed top-4 left-4 z-30 bg-blue-600 text-white p-3 rounded-lg shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-        </svg>
-    </button>
 
     <!-- Floating Nav Cards - Positioned to avoid zoom controls -->
     <div class="floating-nav-cards absolute top-4 right-4 z-30 flex flex-col gap-3">
@@ -231,6 +224,18 @@ document.addEventListener('DOMContentLoaded', function() {
         attribution: '© OpenStreetMap contributors | © <a href="https://leafletjs.com/" target="_blank">Leaflet</a> | <a href="https://commons.wikimedia.org/wiki/Category:Wiki_Loves_Monuments_Turkey" target="_blank">Wikimedia Commons</a> | Made with ❤️ by <a href="https://github.com/m3rcury" target="_blank">m3rcury</a>'
     }).addTo(map);
     
+    // Force zoom control positioning after map initialization
+    setTimeout(() => {
+        const zoomControl = document.querySelector('.leaflet-control-zoom');
+        if (zoomControl) {
+            zoomControl.style.left = '10px';
+            zoomControl.style.right = 'auto';
+            zoomControl.style.bottom = '20px';
+            zoomControl.style.top = 'auto';
+            zoomControl.style.position = 'absolute';
+        }
+    }, 100);
+    
     // Clustering
     const markerCluster = L.markerClusterGroup({
         showCoverageOnHover: false,
@@ -243,16 +248,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentInfoWindow = null;
     
     // Mobile search panel toggle
-    const mobileSearchToggle = document.getElementById('mobileSearchToggle');
     const searchPanel = document.getElementById('searchPanel');
     const closeSearchPanel = document.getElementById('closeSearchPanel');
-    
-    if (mobileSearchToggle) {
-        mobileSearchToggle.addEventListener('click', function() {
-            searchPanel.classList.remove('hidden');
-            searchPanel.classList.add('mobile-open');
-        });
-    }
     
     if (closeSearchPanel) {
         closeSearchPanel.addEventListener('click', function() {
@@ -318,7 +315,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 show = false;
             }
             
-            if (category && !marker.monument.categories?.some(cat => cat.id == category)) {
+            if (category && !marker.monument.categories?.some(cat => String(cat.id) === String(category))) {
                 show = false;
             }
             
@@ -568,6 +565,11 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Hide search panel when monument info is shown to avoid overlap
         searchPanel.classList.add('hidden');
+        
+        // On mobile, make info panel full screen
+        if (window.innerWidth < 768) {
+            infoPanel.classList.add('mobile-open');
+        }
 
         // Fetch full JSON for this monument and display
         // fetch(`/api/monuments/${monument.id}?raw=1`)
@@ -693,11 +695,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Close monument info panel
     document.getElementById('closeInfo').addEventListener('click', function() {
-        document.getElementById('monumentInfo').classList.add('hidden');
+        const infoPanel = document.getElementById('monumentInfo');
+        infoPanel.classList.add('hidden');
+        infoPanel.classList.remove('mobile-open');
         // Show search panel again when monument info is closed
-        if (window.innerWidth >= 768) {
-            searchPanel.classList.remove('hidden');
-        }
+        searchPanel.classList.remove('hidden');
     });
     
     // Build upload wizard URL for monument
@@ -753,6 +755,16 @@ document.addEventListener('DOMContentLoaded', function() {
     right: auto !important;
     bottom: 20px !important;
     top: auto !important;
+    position: absolute !important;
+}
+
+/* Force zoom control positioning with higher specificity */
+.leaflet-container .leaflet-control-zoom {
+    left: 10px !important;
+    right: auto !important;
+    bottom: 20px !important;
+    top: auto !important;
+    position: absolute !important;
 }
 
 .leaflet-control-attribution {
@@ -779,9 +791,10 @@ document.addEventListener('DOMContentLoaded', function() {
     z-index: 2000 !important;
 }
 
-/* Mobile search panel full screen overlay */
+/* Mobile search panel and info panel full screen overlay */
 @media (max-width: 768px) {
-    #searchPanel.mobile-open {
+    #searchPanel.mobile-open,
+    #monumentInfo.mobile-open {
         position: fixed !important;
         top: 0 !important;
         left: 0 !important;
@@ -799,10 +812,10 @@ document.addEventListener('DOMContentLoaded', function() {
         top: 10px !important;
     }
     
-    /* Adjust mobile search button spacing */
-    #mobileSearchToggle {
-        top: 10px !important;
-        left: 10px !important;
+    /* Make search panel smaller on mobile by default */
+    #searchPanel {
+        width: calc(100vw - 2rem) !important;
+        max-width: 320px !important;
     }
 }
 
