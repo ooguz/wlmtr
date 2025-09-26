@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
+use Laravel\Socialite\Facades\Socialite;
 
 class WikimediaAuthController extends Controller
 {
@@ -31,9 +32,7 @@ class WikimediaAuthController extends Controller
     public function redirectToWikimedia(): RedirectResponse
     {
         try {
-            $authUrl = $this->wikimediaAuth->getAuthorizationUrl();
-
-            return redirect($authUrl);
+            return Socialite::driver('wikimedia')->redirect();
         } catch (\Exception $e) {
             Log::error('Wikimedia OAuth redirect error', [
                 'error' => $e->getMessage(),
@@ -50,10 +49,18 @@ class WikimediaAuthController extends Controller
     public function handleWikimediaCallback(Request $request): RedirectResponse
     {
         try {
-            $callbackData = $request->all();
+            $socialiteUser = Socialite::driver('wikimedia')->stateless()->user();
 
-            // Handle OAuth callback data
-            $userData = $this->wikimediaAuth->handleCallback($callbackData);
+            $userData = [
+                'wikimedia_id' => $socialiteUser->getId(),
+                'username' => $socialiteUser->getNickname() ?? $socialiteUser->getName(),
+                'real_name' => $socialiteUser->getName(),
+                'email' => $socialiteUser->getEmail(),
+                'groups' => [],
+                'rights' => [],
+                'edit_count' => 0,
+                'registration_date' => null,
+            ];
 
             if (! $userData) {
                 return redirect()->route('login')
@@ -182,8 +189,16 @@ class WikimediaAuthController extends Controller
         }
 
         try {
-            // Get updated user data from Wikimedia
-            $userData = $this->wikimediaAuth->handleCallback([]);
+            $userData = [
+                'wikimedia_id' => $user->wikimedia_id,
+                'username' => $user->wikimedia_username,
+                'real_name' => $user->wikimedia_real_name,
+                'email' => $user->email,
+                'groups' => $user->wikimedia_groups ?? [],
+                'rights' => $user->wikimedia_rights ?? [],
+                'edit_count' => $user->wikimedia_edit_count ?? 0,
+                'registration_date' => $user->wikimedia_registration_date,
+            ];
 
             if ($userData) {
                 $this->updateUserWikimediaData($user, $userData);
