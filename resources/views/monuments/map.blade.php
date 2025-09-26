@@ -16,8 +16,8 @@
     <!-- Map Container -->
     <div id="map" class="w-full h-full"></div>
     
-    <!-- Search Panel - Visible on mobile by default -->
-    <div id="searchPanel" class="absolute top-4 left-4 z-20 bg-white rounded-lg shadow-lg p-4 w-80 max-h-[calc(100vh-8rem)] overflow-y-auto md:block">
+    <!-- Search Panel - hidden on mobile by default; opened via mobile search toggle -->
+    <div id="searchPanel" class="absolute top-4 left-4 z-20 bg-white rounded-lg shadow-lg p-4 w-80 max-h-[calc(100vh-8rem)] overflow-y-auto hidden md:block">
         <h3 class="text-lg font-semibold mb-4">Anıt Ara</h3>
         
         <!-- Search Input -->
@@ -56,7 +56,10 @@
                 </label>
             </div>
             
-            <!-- Distance Filter -->
+            <!-- Separator: location-based options -->
+            <div class="my-3 border-t border-gray-200"></div>
+
+            <!-- Distance Filter (location-based) -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Mesafe (km)</label>
                 <input type="range" 
@@ -73,11 +76,21 @@
             </div>
         </div>
         
-        <!-- Location Button -->
+        <!-- Location Button (location-based) -->
         <button id="locationBtn" 
                 class="w-full mt-4 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
             📍 Konumumu Kullan
         </button>
+
+        <!-- Actions -->
+        <div class="mt-4 flex gap-2">
+            <button id="searchBtn" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                Ara
+            </button>
+            <button id="clearFiltersBtn" class="flex-1 bg-gray-100 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 hidden">
+                Filtreleri Temizle
+            </button>
+        </div>
         
         <!-- Close Button for Mobile -->
         <button id="closeSearchPanel" 
@@ -250,6 +263,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Mobile search panel toggle
     const searchPanel = document.getElementById('searchPanel');
     const closeSearchPanel = document.getElementById('closeSearchPanel');
+    const mobileSearchToggle = document.getElementById('mobileSearchToggle');
+    
+    if (mobileSearchToggle) {
+        mobileSearchToggle.addEventListener('click', function() {
+            searchPanel.classList.remove('hidden');
+            searchPanel.classList.add('mobile-open');
+        });
+    }
     
     if (closeSearchPanel) {
         closeSearchPanel.addEventListener('click', function() {
@@ -285,13 +306,31 @@ document.addEventListener('DOMContentLoaded', function() {
     const distanceFilter = document.getElementById('distanceFilter');
     const distanceValue = document.getElementById('distanceValue');
     const locationBtn = document.getElementById('locationBtn');
+    const searchBtn = document.getElementById('searchBtn');
+    const clearFiltersBtn = document.getElementById('clearFiltersBtn');
     
     // Update distance display
     distanceFilter.addEventListener('input', function() {
         distanceValue.textContent = this.value + 'km';
     });
     
-    // Search and filter - Fixed to refresh clusters properly
+    // Determine if filters are active
+    function isFiltered() {
+        return (
+            (searchInput.value && searchInput.value.trim() !== '') ||
+            (provinceFilter.value && provinceFilter.value !== '') ||
+            (categoryFilter.value && categoryFilter.value !== '') ||
+            photoToggle.checked
+        );
+    }
+
+    function updateClearButtonVisibility() {
+        if (clearFiltersBtn) {
+            clearFiltersBtn.classList.toggle('hidden', !isFiltered());
+        }
+    }
+
+    // Search and filter - runs only when 'Ara' is clicked
     function applyFilters() {
         const searchTerm = searchInput.value.toLowerCase();
         const province = provinceFilter.value;
@@ -330,12 +369,38 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Add visible markers back to cluster
         markerCluster.addLayers(visibleMarkers);
+
+        updateClearButtonVisibility();
+        // Close search panel on mobile to reveal map
+        if (window.innerWidth < 768) {
+            searchPanel.classList.add('hidden');
+            searchPanel.classList.remove('mobile-open');
+        }
     }
     
-    searchInput.addEventListener('input', applyFilters);
-    provinceFilter.addEventListener('change', applyFilters);
-    categoryFilter.addEventListener('change', applyFilters);
-    photoToggle.addEventListener('change', applyFilters);
+    // Apply only when the user clicks 'Ara'
+    if (searchBtn) {
+        searchBtn.addEventListener('click', applyFilters);
+    }
+
+    // Clear filters
+    function clearFilters() {
+        searchInput.value = '';
+        provinceFilter.value = '';
+        categoryFilter.value = '';
+        photoToggle.checked = false;
+        distanceFilter.value = 50;
+        distanceValue.textContent = '50km';
+        // Reapply (shows all)
+        applyFilters();
+    }
+
+    if (clearFiltersBtn) {
+        clearFiltersBtn.addEventListener('click', clearFilters);
+    }
+
+    // Initialize clear button visibility on load
+    updateClearButtonVisibility();
     
     // Location functionality
     locationBtn.addEventListener('click', function() {
