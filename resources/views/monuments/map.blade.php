@@ -360,7 +360,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 show = false;
             }
             
-            if (category && !marker.monument.categories?.some(cat => cat.id === parseInt(category))) {
+            if (category && !marker.monument.categories?.some(cat => Number(cat.id) === Number(category))) {
                 console.log('Filtering out:', marker.monument.name, 'Categories:', marker.monument.categories, 'Selected:', category);
                 show = false;
             }
