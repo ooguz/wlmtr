@@ -103,22 +103,10 @@ class MonumentController extends Controller
      */
     public function apiMapMarkers(Request $request): JsonResponse
     {
-        $zoom = (int) $request->get('zoom', 0);
-
-        // Base select kept lean for markers
-        $query = Monument::query()
+        $query = Monument::with(['categories'])
             ->select(['id', 'wikidata_id', 'name_tr', 'name_en', 'description_tr', 'description_en', 'latitude', 'longitude', 'has_photos', 'photo_count', 'province', 'city', 'district', 'location_hierarchy_tr'])
             ->whereNotNull('latitude')
             ->whereNotNull('longitude');
-
-        // Eager load: only categories when the UI needs them (zoomed in or explicit filter)
-        $shouldLoadCategories = $zoom >= 9 || $request->filled('category');
-        if ($shouldLoadCategories) {
-            $query->with(['categories:id,name_tr,name_en']);
-        }
-
-        // Always eager load a single featured photo to avoid N+1
-        $query->with(['featuredPhoto:id,monument_id,commons_url,thumbnail_url,original_url,title,photographer,license,license_shortname,is_featured']);
 
         // Apply filters
         if ($request->filled('bounds')) {
@@ -135,28 +123,15 @@ class MonumentController extends Controller
             }
         }
 
-        // Result limiting and ordering tuned by zoom to reduce payload at low zoom
-        if ($request->filled('bounds')) {
-            // Conservative caps by zoom; adjust as needed
-            $limit = match (true) {
-                $zoom <= 5 => 3000,
-                $zoom <= 7 => 6000,
-                $zoom <= 9 => 12000,
-                default => 20000,
-            };
-            // Prioritize monuments with photos, then by recency/count for better visuals
-            $query->orderByDesc('has_photos')
-                ->orderByDesc('photo_count')
-                ->limit($limit);
-        } else {
-            // Safety cap if bounds not provided
+        // Safety cap if bounds not provided
+        if (! $request->filled('bounds')) {
             $query->orderByDesc('last_synced_at')->limit(2000);
         }
-
         // Build cache key if bounds are present (quantized to limit cardinality)
         $cacheKey = null;
         if ($request->filled('bounds')) {
             $b = $request->get('bounds');
+            $zoom = (int) $request->get('zoom', 0);
             $precision = $zoom >= 12 ? 3 : ($zoom >= 9 ? 2 : 1);
             $q = function ($v) use ($precision) {
                 return round((float) $v, $precision);
@@ -164,13 +139,11 @@ class MonumentController extends Controller
             $cacheKey = 'markers:'.implode(':', ['z'.$zoom, $q($b['south']), $q($b['west']), $q($b['north']), $q($b['east'])]);
         }
 
-        $ttl = $zoom <= 7 ? 300 : 90; // cache longer for low zoom which changes less
-
-        $compute = function () use ($query, $shouldLoadCategories) {
-            return $query->get()->map(function ($monument) use ($shouldLoadCategories) {
+        $compute = function () use ($query) {
+            return $query->get()->map(function ($monument) {
                 // Resolve a structured featured photo with attribution fields
                 $featured = null;
-                $fp = $monument->featured_photo; // uses relation if eager loaded
+                $fp = $monument->featured_photo;
                 if ($fp) {
                     if (is_object($fp)) {
                         // Eloquent Photo model or stdClass from accessor
@@ -212,20 +185,20 @@ class MonumentController extends Controller
                     'country' => $monument->country,
                     'admin_area' => $monument->location_hierarchy_tr,
                     'location_hierarchy_tr' => $monument->location_hierarchy_tr,
-                    'categories' => $shouldLoadCategories ? ($monument->categories->map(function ($category) {
+                    'categories' => $monument->categories->map(function ($category) {
                         return [
                             'id' => $category->id,
                             'name' => $category->primary_name,
                         ];
-                    })) : null,
+                    }),
                     'url' => "/monuments/{$monument->id}",
                 ];
             });
         };
 
-        $monuments = $cacheKey ? Cache::remember($cacheKey, $ttl, $compute) : $compute();
+        $monuments = $cacheKey ? Cache::remember($cacheKey, 60, $compute) : $compute();
 
-        return response()->json($monuments)->header('Cache-Control', 'public, max-age='.$ttl);
+        return response()->json($monuments)->header('Cache-Control', 'public, max-age=60');
     }
 
     /**
