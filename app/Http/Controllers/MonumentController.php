@@ -104,7 +104,7 @@ class MonumentController extends Controller
     public function apiMapMarkers(Request $request): JsonResponse
     {
         $query = Monument::with(['categories'])
-            ->select(['id', 'wikidata_id', 'name_tr', 'name_en', 'description_tr', 'description_en', 'latitude', 'longitude', 'has_photos', 'photo_count', 'province', 'city', 'district', 'location_hierarchy_tr'])
+            ->select(['id', 'wikidata_id', 'name_tr', 'name_en', 'description_tr', 'description_en', 'latitude', 'longitude', 'has_photos', 'photo_count', 'province', 'city', 'district', 'location_hierarchy_tr', 'properties'])
             ->whereNotNull('latitude')
             ->whereNotNull('longitude');
 
@@ -140,7 +140,27 @@ class MonumentController extends Controller
         }
 
         $compute = function () use ($query) {
-            return $query->get()->map(function ($monument) {
+            $results = $query->get();
+
+            // Build a map of instance_of QIDs to categories to avoid N+1 queries
+            $instanceQids = [];
+            foreach ($results as $m) {
+                $props = $m->properties;
+                if (is_array($props) && ! empty($props['instance_of'])) {
+                    $instanceQids[] = (string) $props['instance_of'];
+                }
+            }
+            $instanceQids = array_values(array_unique(array_filter($instanceQids)));
+
+            $qidToCategory = [];
+            if (! empty($instanceQids)) {
+                $categoryModels = \App\Models\Category::query()->whereIn('wikidata_id', $instanceQids)->get(['id', 'wikidata_id', 'name_tr', 'name_en']);
+                foreach ($categoryModels as $cat) {
+                    $qidToCategory[$cat->wikidata_id] = $cat;
+                }
+            }
+
+            return $results->map(function ($monument) use ($qidToCategory) {
                 // Resolve a structured featured photo with attribution fields
                 $featured = null;
                 $fp = $monument->featured_photo;
@@ -167,6 +187,16 @@ class MonumentController extends Controller
                         ];
                     }
                 }
+                // Build categories array; fallback to instance_of mapping if relation empty
+                $categories = $monument->categories;
+                if ($categories->isEmpty()) {
+                    $props = $monument->properties;
+                    $instanceOf = is_array($props) ? ($props['instance_of'] ?? null) : null;
+                    if (is_string($instanceOf) && isset($qidToCategory[$instanceOf])) {
+                        $categories = collect([$qidToCategory[$instanceOf]]);
+                    }
+                }
+
                 return [
                     'id' => $monument->id,
                     'wikidata_id' => $monument->wikidata_id,
@@ -185,7 +215,7 @@ class MonumentController extends Controller
                     'country' => $monument->country,
                     'admin_area' => $monument->location_hierarchy_tr,
                     'location_hierarchy_tr' => $monument->location_hierarchy_tr,
-                    'categories' => $monument->categories->map(function ($category) {
+                    'categories' => $categories->map(function ($category) {
                         return [
                             'id' => $category->id,
                             'name' => $category->primary_name,
