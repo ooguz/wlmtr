@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Monument extends Model
 {
@@ -57,6 +58,15 @@ class Monument extends Model
     }
 
     /**
+     * Get the featured photo for this monument as a relation.
+     * Falls back to the first photo when a featured one does not exist when eager loaded explicitly.
+     */
+    public function featuredPhoto(): HasOne
+    {
+        return $this->hasOne(Photo::class)->where('is_featured', true);
+    }
+
+    /**
      * Get the categories for this monument.
      */
     public function categories(): BelongsToMany
@@ -104,17 +114,30 @@ class Monument extends Model
     }
 
     /**
-     * Get the featured photo for this monument.
+     * Get the featured photo for this monument without triggering N+1 queries.
+     * If photo relationships are not preloaded, avoid database hits and only use the Commons fallback.
      */
     public function getFeaturedPhotoAttribute()
     {
-        // Prefer synced photo if exists
-        $photo = $this->photos()->where('is_featured', true)->first() ?? $this->photos()->first();
-        if ($photo) {
-            return $photo;
+        // Use eager loaded single relation if available
+        if ($this->relationLoaded('featuredPhoto')) {
+            $featured = $this->getRelation('featuredPhoto');
+            if ($featured) {
+                return $featured;
+            }
         }
-        // Fallback to Commons image stored in properties
-        $image = $this->properties['image'] ?? null;
+
+        // If the full photos collection is loaded, derive featured or first from it
+        if ($this->relationLoaded('photos')) {
+            $photos = $this->getRelation('photos');
+            $photo = $photos->firstWhere('is_featured', true) ?? $photos->first();
+            if ($photo) {
+                return $photo;
+            }
+        }
+
+        // Fallback to Commons image stored in properties (does not hit DB)
+        $image = is_array($this->properties) ? ($this->properties['image'] ?? null) : null;
         if ($image) {
             return (object) [
                 'title' => $this->primary_name,
