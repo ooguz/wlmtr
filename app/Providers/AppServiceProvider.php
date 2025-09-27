@@ -6,6 +6,7 @@ use App\Services\WikimediaOAuthService;
 use GuzzleHttp\Client;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\URL;
 use Laravel\Socialite\Facades\Socialite;
 
 class AppServiceProvider extends ServiceProvider
@@ -25,6 +26,11 @@ class AppServiceProvider extends ServiceProvider
     {
         Socialite::extend('wikimedia', function ($app) {
             $config = config('services.wikimedia');
+
+            // Ensure redirect is an absolute URL; fall back to route if missing
+            if (empty($config['redirect'])) {
+                $config['redirect'] = URL::route('auth.wikimedia.callback');
+            }
 
             $provider = Socialite::buildProvider(WikimediaOAuthService::class, $config);
 

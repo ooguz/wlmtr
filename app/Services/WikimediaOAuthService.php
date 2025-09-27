@@ -117,12 +117,10 @@ class WikimediaOAuthService extends AbstractProvider
     }
 
     /**
-     * Get the HTTP client instance with custom User-Agent.
+     * Use the parent HTTP client (configured via provider registration).
      */
     protected function getHttpClient()
     {
-        return parent::getHttpClient()->withHeaders([
-            'User-Agent' => config('services.wikimedia.user_agent', 'WLM-TR/1.0'),
-        ]);
+        return parent::getHttpClient();
     }
 }
