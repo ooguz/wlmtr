@@ -116,8 +116,8 @@
             <div class="flex items-center gap-2">
                 <span>👤</span>
                 <div>
-                    <div class="text-sm font-semibold">Profil</div>
-                    <div class="text-xs text-gray-500">Hesap ayarları</div>
+                    <div class="text-sm font-semibold">{{ auth()->user()->username }}</div>
+                    <div class="text-xs text-gray-500">Profiliniz ve ayarlar</div>
                 </div>
             </div>
         </a>

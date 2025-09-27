@@ -141,14 +141,30 @@ class MonumentController extends Controller
 
         $compute = function () use ($query) {
             return $query->get()->map(function ($monument) {
-                // Resolve a simple featured photo URL for lightweight map payloads
+                // Resolve a structured featured photo with attribution fields
                 $featured = null;
                 $fp = $monument->featured_photo;
                 if ($fp) {
                     if (is_object($fp)) {
-                        $featured = $fp->display_url ?? $fp->full_resolution_url ?? null;
+                        // Eloquent Photo model or stdClass from accessor
+                        $featured = [
+                            'title' => $fp->title ?? $monument->primary_name,
+                            'photographer' => $fp->photographer ?? null,
+                            'license' => $fp->license_display_name ?? ($fp->license ?? null),
+                            'commons_url' => $fp->commons_url ?? null,
+                            'display_url' => $fp->display_url ?? $fp->full_resolution_url ?? null,
+                            'full_resolution_url' => $fp->full_resolution_url ?? $fp->display_url ?? null,
+                        ];
                     } else {
-                        $featured = $fp;
+                        // String URL fallback
+                        $featured = [
+                            'title' => $monument->primary_name,
+                            'photographer' => null,
+                            'license' => null,
+                            'commons_url' => null,
+                            'display_url' => $fp,
+                            'full_resolution_url' => $fp,
+                        ];
                     }
                 }
                 return [
