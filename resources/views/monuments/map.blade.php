@@ -365,7 +365,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 show = false;
             }
             
-            if (showOnlyWithoutPhotos && marker.monument.photos.length > 0) {
+            // Use photo_count / has_photos from API instead of photos array (which is not provided)
+            const hasPhotos = ((marker.monument.photo_count ?? 0) > 0) || (marker.monument.has_photos === true);
+            if (showOnlyWithoutPhotos && hasPhotos) {
                 show = false;
             }
             
