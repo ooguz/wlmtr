@@ -103,13 +103,7 @@ class MonumentController extends Controller
      */
     public function apiMapMarkers(Request $request): JsonResponse
     {
-        $query = Monument::with([
-                // Eager load only light columns for one photo per monument
-                'featuredPhoto:id,monument_id,commons_url,thumbnail_url,original_url,title,photographer,license,license_shortname,is_featured',
-                'firstPhoto:id,monument_id,commons_url,thumbnail_url,original_url,title,photographer,license,license_shortname,is_featured',
-                // Categories minimal fields
-                'categories:id,name_tr,name_en'
-            ])
+        $query = Monument::with(['categories'])
             ->select(['id', 'wikidata_id', 'name_tr', 'name_en', 'description_tr', 'description_en', 'latitude', 'longitude', 'has_photos', 'photo_count', 'province', 'city', 'district', 'location_hierarchy_tr'])
             ->whereNotNull('latitude')
             ->whereNotNull('longitude');
@@ -149,17 +143,17 @@ class MonumentController extends Controller
             return $query->get()->map(function ($monument) {
                 // Resolve a structured featured photo with attribution fields
                 $featured = null;
-                $fp = $monument->featuredPhoto ?? $monument->firstPhoto ?? $monument->featured_photo; // prefer eager-loaded
+                $fp = $monument->featured_photo;
                 if ($fp) {
                     if (is_object($fp)) {
                         // Eloquent Photo model or stdClass from accessor
                         $featured = [
                             'title' => $fp->title ?? $monument->primary_name,
                             'photographer' => $fp->photographer ?? null,
-                            'license' => method_exists($fp, 'getLicenseDisplayNameAttribute') ? $fp->license_display_name : ($fp->license ?? null),
+                            'license' => $fp->license_display_name ?? ($fp->license ?? null),
                             'commons_url' => $fp->commons_url ?? null,
-                            'display_url' => $fp->display_url ?? $fp->original_url ?? null,
-                            'full_resolution_url' => $fp->original_url ?? $fp->display_url ?? null,
+                            'display_url' => $fp->display_url ?? $fp->full_resolution_url ?? null,
+                            'full_resolution_url' => $fp->full_resolution_url ?? $fp->display_url ?? null,
                         ];
                     } else {
                         // String URL fallback
@@ -202,9 +196,9 @@ class MonumentController extends Controller
             });
         };
 
-        $monuments = $cacheKey ? Cache::remember($cacheKey, 300, $compute) : $compute();
+        $monuments = $cacheKey ? Cache::remember($cacheKey, 60, $compute) : $compute();
 
-        return response()->json($monuments)->header('Cache-Control', 'public, max-age=300');
+        return response()->json($monuments)->header('Cache-Control', 'public, max-age=60');
     }
 
     /**
