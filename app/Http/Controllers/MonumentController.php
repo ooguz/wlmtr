@@ -15,12 +15,8 @@ class MonumentController extends Controller
      */
     public function map(Request $request): View
     {
-        $monuments = Monument::with(['photos', 'categories'])
-            ->whereNotNull('latitude')
-            ->whereNotNull('longitude')
-            ->get();
-
-        return view('monuments.map', compact('monuments'));
+        // Frontend fetches markers via API using viewport bounds; avoid heavy preload here
+        return view('monuments.map');
     }
 
     /**
@@ -116,6 +112,14 @@ class MonumentController extends Controller
             $bounds = $request->get('bounds');
             $query->whereBetween('latitude', [$bounds['south'], $bounds['north']])
                 ->whereBetween('longitude', [$bounds['west'], $bounds['east']]);
+
+            // Optional zoom-aware safety cap to avoid returning too many markers at low zooms
+            $zoom = (int) $request->get('zoom', 0);
+            if ($zoom <= 6) {
+                $query->orderByDesc('photo_count')->orderByDesc('last_synced_at')->limit(4000);
+            } elseif ($zoom <= 8) {
+                $query->orderByDesc('photo_count')->orderByDesc('last_synced_at')->limit(8000);
+            }
         }
 
         if ($request->filled('has_photos')) {

@@ -282,22 +282,20 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Load monuments after first tile loads
+    // Load monuments after first tile loads, using viewport bounds
     let firstTileLoaded = false;
     
     map.on('tileload', function() {
         if (!firstTileLoaded) {
             firstTileLoaded = true;
-            console.log('First tile loaded, will call loadMonuments in 1 second');
-            // Wait a bit more for all initial tiles to load
-            setTimeout(loadMonuments, 1000);
+            setTimeout(fetchMarkersForCurrentView, 500);
         }
     });
     
     // Fallback: load monuments after 5 seconds even if no tiles load
     setTimeout(function() {
         if (!firstTileLoaded) {
-            loadMonuments();
+            fetchMarkersForCurrentView();
         }
     }, 5000);
     
@@ -348,6 +346,11 @@ document.addEventListener('DOMContentLoaded', function() {
         markers.forEach(marker => {
             let show = true;
             
+            // Debug: Log first few monuments to see their data structure
+            if (markers.indexOf(marker) < 3) {
+                console.log('Monument data:', marker.monument.name, 'Categories:', marker.monument.categories);
+            }
+            
             if (searchTerm && !marker.monument.name.toLowerCase().includes(searchTerm) && 
                 !marker.monument.description?.toLowerCase().includes(searchTerm)) {
                 show = false;
@@ -358,6 +361,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             if (category && !marker.monument.categories?.some(cat => cat.id === parseInt(category))) {
+                console.log('Filtering out:', marker.monument.name, 'Categories:', marker.monument.categories, 'Selected:', category);
                 show = false;
             }
             
@@ -460,13 +464,44 @@ document.addEventListener('DOMContentLoaded', function() {
         return R * c;
     }
     
-    // Load monuments from API
-    function loadMonuments() {
-        // Get loading spinner reference
+    // Build API URL for current map bounds
+    function buildMarkersUrl() {
+        const b = map.getBounds();
+        const sw = b.getSouthWest();
+        const ne = b.getNorthEast();
+        const zoom = map.getZoom();
+        const params = new URLSearchParams();
+        params.set('bounds[south]', sw.lat);
+        params.set('bounds[west]', sw.lng);
+        params.set('bounds[north]', ne.lat);
+        params.set('bounds[east]', ne.lng);
+        params.set('zoom', zoom);
+        return '/api/monuments/map-markers?' + params.toString();
+    }
+
+    // Debounced viewport-based fetch
+    let debounceTimer = null;
+    function scheduleFetchMarkers() {
+        if (debounceTimer) {
+            clearTimeout(debounceTimer);
+        }
+        debounceTimer = setTimeout(fetchMarkersForCurrentView, 350);
+    }
+
+    map.on('moveend', scheduleFetchMarkers);
+
+    // Load monuments from API for current viewport
+    function fetchMarkersForCurrentView() {
         const loadingSpinner = document.getElementById('loadingSpinner');
-        console.log('loadMonuments started, spinner should be visible');
+        const url = buildMarkersUrl();
         
-        fetch('/api/monuments/map-markers')
+        // Show spinner only if nothing is on the map yet
+        const shouldShowSpinner = markers.length === 0;
+        if (shouldShowSpinner) {
+            loadingSpinner.style.display = 'flex';
+        }
+        
+        fetch(url)
             .then(response => {
                 if (!response.ok) {
                     throw new Error('API response not ok: ' + response.status);
@@ -474,12 +509,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 return response.json();
             })
             .then(data => {
-                
-                // Clear existing markers
-                markerCluster.clearLayers();
+                // Update markers collection
                 markers = [];
-                
-                // Add new markers
+
+                // Clear existing cluster and rebuild
+                markerCluster.clearLayers();
+
                 (data || []).forEach(monument => {
                     const marker = L.circleMarker([monument.coordinates.lat, monument.coordinates.lng], {
                         radius: 6,
@@ -489,30 +524,34 @@ document.addEventListener('DOMContentLoaded', function() {
                         opacity: 1,
                         fillOpacity: 0.8
                     });
-                    
                     marker.monument = monument;
                     markers.push(marker);
-                    markerCluster.addLayer(marker);
                     
-                    // Add click event
+                    // Click event preserved
                     marker.on('click', function() {
                         showMonumentInfo(monument);
                     });
                 });
-                
-                // Load provinces for filter
-                loadProvinces();
-                
-                // Hide loading spinner after markers are added
-                console.log('Hiding spinner - markers have been added');
-                loadingSpinner.style.display = 'none';
+
+                // Respect current filters when adding to cluster
+                applyFilters();
+
+                // Load provinces for filter (only once)
+                if (!window._filtersLoadedOnce) {
+                    window._filtersLoadedOnce = true;
+                    loadProvinces();
+                }
+
+                if (shouldShowSpinner) {
+                    loadingSpinner.style.display = 'none';
+                }
             })
-            .catch(error => {
-                console.warn('Monuments unavailable');
-                // Hide loading spinner even on error
-                loadingSpinner.style.display = 'none';
+            .catch(() => {
+                if (shouldShowSpinner) {
+                    loadingSpinner.style.display = 'none';
+                }
             });
-        }
+    }
     
     // Get province name from Wikidata
     function getProvinceName(provinceCode) {

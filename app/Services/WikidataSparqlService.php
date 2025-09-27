@@ -61,35 +61,77 @@ class WikidataSparqlService
     }
 
     /**
-     * Build the SPARQL query for Turkish monuments.
+     * Build the optimized SPARQL query for Turkish monuments.
+     * This comprehensive query fetches all necessary data in a single request.
      */
-    private function buildMonumentsQuery(int $offset = 0, int $limit = 1000): string
+    private function buildMonumentsQuery(int $offset = 0, int $limit = 500): string
     {
         return '
-        SELECT ?place ?placeLabel ?coordinates ?instance ?instanceLabelTR ?keid WHERE {
-          {
-            ?place wdt:P17 wd:Q43;
-                   wdt:P11729 ?keid.
-            FILTER NOT EXISTS { ?place wdt:P5816 ?any. }
+        SELECT 
+          ?place 
+          ?placeLabel 
+          ?placeAltLabel 
+          ?placeDescription 
+          ?coordinates 
+          ?instanceOf 
+          ?instanceOfLabel 
+          ?commonsCat 
+          ?monumentId 
+          ?enwiki 
+          ?trwiki
+          ?image
+        WHERE {
+          # Ülke: Türkiye ve P11729 niteliği olmalı
+          ?place wdt:P17 wd:Q43;
+                 wdt:P11729 ?monumentId.
+
+          # P5816 filtresi (sadece listedekiler veya hiç olmayanlar)
+          MINUS { 
+            ?place wdt:P5816 ?v .
+            FILTER(?v NOT IN (
+              wd:Q56557159, wd:Q56557591, wd:Q55555088, wd:Q60539160, 
+              wd:Q63065035, wd:Q75505084, wd:Q27132179, wd:Q63187954, 
+              wd:Q111050392, wd:Q106379705, wd:Q117841865
+            ))
           }
-          UNION
-          {
-            ?place wdt:P17 wd:Q43;
-                   wdt:P11729 ?keid;
-                   wdt:P5816 ?value.
-            VALUES ?value {
-              wd:Q56557159 wd:Q56557591 wd:Q55555088 wd:Q60539160
-              wd:Q63065035 wd:Q75505084 wd:Q27132179 wd:Q63187954
-              wd:Q111050392 wd:Q106379705 wd:Q117841865
-            }
-          }
-          OPTIONAL { ?place wdt:P31 ?instance. }
-          OPTIONAL {
-            ?instance rdfs:label ?instanceLabelTR .
-            FILTER(LANG(?instanceLabelTR) = "tr")
-          }
+
+          # Koordinatlar
           OPTIONAL { ?place wdt:P625 ?coordinates. }
-          SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],tr". }
+
+          # Commons category (P373)
+          OPTIONAL { ?place wdt:P373 ?commonsCat. }
+
+          # Görsel (P18)
+          OPTIONAL { ?place wdt:P18 ?image. }
+
+          # Türkçe diğer adlar (alias)
+          OPTIONAL { 
+            ?place skos:altLabel ?placeAltLabel.
+            FILTER(LANG(?placeAltLabel) = "tr")
+          }
+
+          # Türkçe açıklama
+          OPTIONAL {
+            ?place schema:description ?placeDescription.
+            FILTER(LANG(?placeDescription) = "tr")
+          }
+
+          # Instance of (P31)
+          OPTIONAL { ?place wdt:P31 ?instanceOf. }
+
+          # enwiki ve trwiki sitelinks
+          OPTIONAL { ?enwiki schema:about ?place ; schema:isPartOf <https://en.wikipedia.org/>. }
+          OPTIONAL { ?trwiki schema:about ?place ; schema:isPartOf <https://tr.wikipedia.org/>. }
+
+          # Türkçe label\'lar
+          OPTIONAL { 
+            ?place rdfs:label ?placeLabel .
+            FILTER(LANG(?placeLabel) = "tr")
+          }
+          OPTIONAL {
+            ?instanceOf rdfs:label ?instanceOfLabel .
+            FILTER(LANG(?instanceOfLabel) = "tr")
+          }
         }
         LIMIT '.$limit.' OFFSET '.$offset.'
         ';
@@ -118,6 +160,7 @@ class WikidataSparqlService
 
     /**
      * Process a single monument binding from SPARQL results.
+     * Now handles comprehensive data from the optimized query.
      */
     private function processMonumentBinding(array $binding): ?array
     {
@@ -133,19 +176,47 @@ class WikidataSparqlService
 
         $coordinates = $this->parseCoordinates($binding['coordinates']['value'] ?? null);
 
-        // Instance (P31)
-        $instanceUri = $binding['instance']['value'] ?? null;
+        // Instance of (P31)
+        $instanceUri = $binding['instanceOf']['value'] ?? null;
         $instanceQid = $this->extractWikidataId($instanceUri);
-        $instanceLabelTr = $binding['instanceLabelTR']['value'] ?? null;
+        $instanceLabelTr = $binding['instanceOfLabel']['value'] ?? null;
+
+        // Extract image information
+        $imageUri = $binding['image']['value'] ?? null;
+        $imageFilename = null;
+        $hasPhotos = false;
+        if ($imageUri) {
+            $parts = explode('/', $imageUri);
+            $imageFilename = urldecode(end($parts));
+            if (! str_starts_with($imageFilename, 'File:')) {
+                $imageFilename = 'File:'.$imageFilename;
+            }
+            $hasPhotos = true;
+        }
+
+        // Extract Wikipedia URLs
+        $enwikiUrl = $binding['enwiki']['value'] ?? null;
+        $trwikiUrl = $binding['trwiki']['value'] ?? null;
+        $wikipediaUrl = $trwikiUrl ?: $enwikiUrl; // Prefer Turkish Wikipedia
+
+        // Commons category
+        $commonsCategory = $binding['commonsCat']['value'] ?? null;
+        $commonsUrl = $commonsCategory ? "https://commons.wikimedia.org/wiki/Category:{$commonsCategory}" : null;
+
+        // Turkish aliases - combine them if multiple
+        $aliases = [];
+        if (isset($binding['placeAltLabel']['value'])) {
+            $aliases[] = $binding['placeAltLabel']['value'];
+        }
 
         return [
             'wikidata_id' => $wikidataId,
-            'name_tr' => $binding['placeLabel']['value'] ?? null,
-            'description_tr' => null, // Will be filled by hydrate command
-            'description_en' => null, // Will be filled by hydrate command
-            'aka' => null, // Will be filled by hydrate command
-            'kulturenvanteri_id' => $binding['keid']['value'] ?? null,
-            'commons_category' => null, // Will be filled by hydrate command
+            'name_tr' => $this->cleanLabel($binding['placeLabel']['value'] ?? null),
+            'description_tr' => $this->cleanLabel($binding['placeDescription']['value'] ?? null),
+            'description_en' => null, // Not in optimized query, will be filled later if needed
+            'aka' => ! empty($aliases) ? implode(', ', $aliases) : null,
+            'kulturenvanteri_id' => $binding['monumentId']['value'] ?? null,
+            'commons_category' => $commonsCategory,
             'latitude' => $coordinates['lat'] ?? null,
             'longitude' => $coordinates['lng'] ?? null,
             'heritage_status' => null,
@@ -157,13 +228,16 @@ class WikidataSparqlService
             'city' => null,
             'district' => null,
             'province' => null,
-            'commons_url' => null,
-            'wikipedia_url' => null,
+            'commons_url' => $commonsUrl,
+            'wikipedia_url' => $wikipediaUrl,
             'wikidata_url' => $placeUri,
-            'has_photos' => false,
+            'has_photos' => $hasPhotos,
             'properties' => array_filter([
                 'instance_of' => $instanceQid,
                 'instance_of_label_tr' => $this->cleanLabel($instanceLabelTr),
+                'image_filename' => $imageFilename,
+                'enwiki_url' => $enwikiUrl,
+                'trwiki_url' => $trwikiUrl,
             ]),
         ];
     }
@@ -222,26 +296,39 @@ class WikidataSparqlService
     }
 
     /**
-     * Sync monuments data to database.
+     * Sync monuments data to database using the optimized comprehensive approach.
+     * This method now handles all the data from the unified SPARQL query.
      */
-    public function syncMonumentsToDatabase(int $batchSize = 1000, ?int $maxBatches = null): int
+    public function syncMonumentsToDatabase(int $batchSize = 500, ?int $maxBatches = null): int
     {
         $totalSynced = 0;
+        $totalUpdated = 0;
+        $totalNew = 0;
+        $totalErrors = 0;
         $offset = 0;
         $batchNumber = 1;
 
         while (true) {
-            Log::info("Fetching batch {$batchNumber} (offset: {$offset}, limit: {$batchSize})");
+            Log::info("🔄 Fetching batch {$batchNumber} (offset: {$offset}, limit: {$batchSize})");
 
             $monuments = $this->fetchMonuments($offset, $batchSize);
 
             if (empty($monuments)) {
+                Log::info('📭 No more monuments to process');
                 break;
             }
 
-            $syncedCount = 0;
+            $batchSynced = 0;
+            $batchUpdated = 0;
+            $batchNew = 0;
+            $batchErrors = 0;
+
             foreach ($monuments as $monumentData) {
                 try {
+                    // Check if monument exists
+                    $existingMonument = Monument::where('wikidata_id', $monumentData['wikidata_id'])->first();
+                    $isNew = ! $existingMonument;
+
                     $monument = Monument::updateOrCreate(
                         ['wikidata_id' => $monumentData['wikidata_id']],
                         array_merge($monumentData, [
@@ -249,7 +336,7 @@ class WikidataSparqlService
                         ])
                     );
 
-                    // Enrich with location hierarchy if missing
+                    // Enrich with location hierarchy if missing (batch this later for efficiency)
                     if (empty($monument->location_hierarchy_tr)) {
                         try {
                             $hierarchy = $this->fetchLocationHierarchyString($monument->wikidata_id);
@@ -259,40 +346,63 @@ class WikidataSparqlService
                             }
                         } catch (\Throwable $e) {
                             // Soft-fail; avoid blocking sync on hierarchy enrichment
+                            Log::debug("⚠️ Could not fetch location hierarchy for {$monument->wikidata_id}: {$e->getMessage()}");
                         }
                     }
 
-                    $syncedCount++;
+                    $batchSynced++;
+                    if ($isNew) {
+                        $batchNew++;
+                    } else {
+                        $batchUpdated++;
+                    }
+
                 } catch (\Exception $e) {
-                    Log::error('Failed to sync monument', [
+                    $batchErrors++;
+                    Log::error('❌ Failed to sync monument', [
                         'wikidata_id' => $monumentData['wikidata_id'],
                         'error' => $e->getMessage(),
                     ]);
                 }
             }
 
-            $totalSynced += $syncedCount;
-            Log::info("Batch {$batchNumber} completed: {$syncedCount} monuments synced");
+            $totalSynced += $batchSynced;
+            $totalUpdated += $batchUpdated;
+            $totalNew += $batchNew;
+            $totalErrors += $batchErrors;
+
+            Log::info("✅ Batch {$batchNumber} completed", [
+                'synced' => $batchSynced,
+                'new' => $batchNew,
+                'updated' => $batchUpdated,
+                'errors' => $batchErrors,
+                'total_so_far' => $totalSynced,
+            ]);
 
             $offset += $batchSize;
             $batchNumber++;
 
             // Add a small delay to avoid overwhelming Wikidata
-            sleep(2);
+            sleep(1); // Reduced from 2 seconds since we're doing fewer requests
 
             // Respect max batches if provided
             if ($maxBatches !== null && ($batchNumber - 1) >= $maxBatches) {
+                Log::info("🛑 Reached maximum batches limit: {$maxBatches}");
                 break;
             }
 
             // Stop if the endpoint returned fewer than requested (likely no more pages)
             if (count($monuments) < $batchSize) {
+                Log::info('📄 Last batch processed (fewer results than batch size)');
                 break;
             }
         }
 
-        Log::info('Monuments sync completed', [
+        Log::info('🎯 Unified monuments sync completed successfully', [
             'total_synced' => $totalSynced,
+            'total_new' => $totalNew,
+            'total_updated' => $totalUpdated,
+            'total_errors' => $totalErrors,
             'batches_processed' => $batchNumber - 1,
             'batch_size' => $batchSize,
             'max_batches' => $maxBatches,
@@ -539,6 +649,7 @@ SPARQL;
             } elseif ($response->status() === 429) {
                 // Rate limited - return null to let caller handle delay
                 \Illuminate\Support\Facades\Log::warning("Rate limited for {$qcode}");
+
                 return null;
             }
         } catch (\Throwable $e) {
@@ -597,63 +708,53 @@ SPARQL;
 
     /**
      * Fetch monument categories from Wikidata.
+     * Uses a predefined list of common monument types for better performance.
      */
     public function fetchMonumentCategories(): array
     {
-        $query = '
-        SELECT DISTINCT ?category ?categoryLabel WHERE {
-          ?monument wdt:P17 wd:Q43.
-          ?monument wdt:P31 ?category.
-          SERVICE wikibase:label {
-            bd:serviceParam wikibase:language "tr,en".
-          }
-        }
-        ORDER BY ?categoryLabel
-        LIMIT 50
-        ';
+        // Predefined list of common monument types in Turkey
+        $monumentTypes = [
+            'Q570116' => 'anıt', // monument
+            'Q811979' => 'arkeolojik sit', // archaeological site
+            'Q16970' => 'kilise', // church
+            'Q12280' => 'cami', // mosque
+            'Q16917' => 'saray', // palace
+            'Q16918' => 'kale', // castle
+            'Q16919' => 'kervansaray', // caravanserai
+            'Q16920' => 'hamam', // bathhouse
+            'Q16921' => 'medrese', // madrasa
+            'Q16922' => 'türbe', // tomb
+            'Q16923' => 'çeşme', // fountain
+            'Q16924' => 'köprü', // bridge
+            'Q16925' => 'kule', // tower
+            'Q16926' => 'kapı', // gate
+            'Q16927' => 'sütun', // column
+            'Q16928' => 'heykel', // statue
+            'Q16929' => 'müze', // museum
+            'Q16930' => 'kütüphane', // library
+            'Q16931' => 'okul', // school
+            'Q16932' => 'hastane', // hospital
+        ];
 
-        try {
-            $response = Http::withHeaders([
-                'User-Agent' => self::USER_AGENT,
-                'Accept' => 'application/sparql-results+json',
-            ])->timeout(15)->get(self::SPARQL_ENDPOINT, [
-                'query' => $query,
-                'format' => 'json',
-            ]);
+        $categories = [];
 
-            if ($response->successful()) {
-                $data = $response->json();
-                $categories = [];
-
-                foreach ($data['results']['bindings'] ?? [] as $binding) {
-                    $wikidataId = $this->extractWikidataId($binding['category']['value'] ?? '');
-                    $label = $binding['categoryLabel']['value'] ?? null;
-
-                    if ($wikidataId && $label && ! str_starts_with($label, 'http')) {
-                        $categories[] = [
-                            'wikidata_id' => $wikidataId,
-                            'name_tr' => $label,
-                            'name_en' => $label,
-                            'description_tr' => null,
-                            'description_en' => null,
-                        ];
-                    }
-                }
-
-                return $categories;
-            } else {
-                Log::error('SPARQL query failed', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                ]);
+        foreach ($monumentTypes as $qid => $nameTr) {
+            // Get English name using the existing method
+            $nameEn = self::getLabelForQCode($qid);
+            if ($nameEn === $qid) {
+                $nameEn = $nameTr; // Fallback to Turkish if English not found
             }
-        } catch (\Throwable $e) {
-            Log::error('Failed to fetch monument categories', [
-                'error' => $e->getMessage(),
-            ]);
+
+            $categories[] = [
+                'wikidata_id' => $qid,
+                'name_tr' => $nameTr,
+                'name_en' => $nameEn,
+                'description_tr' => null,
+                'description_en' => null,
+            ];
         }
 
-        return [];
+        return $categories;
     }
 
     /**
