@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Monument extends Model
 {
@@ -54,6 +55,23 @@ class Monument extends Model
     public function photos(): HasMany
     {
         return $this->hasMany(Photo::class);
+    }
+
+    /**
+     * Get the featured photo via a constrained one-to-one relation.
+     */
+    public function featuredPhoto(): HasOne
+    {
+        return $this->hasOne(Photo::class)->where('is_featured', true);
+    }
+
+    /**
+     * Get the first photo as a lightweight fallback when no featured photo exists.
+     */
+    public function firstPhoto(): HasOne
+    {
+        // Use ofMany to efficiently select a single row per monument
+        return $this->hasOne(Photo::class)->ofMany('id', 'min');
     }
 
     /**
@@ -108,12 +126,15 @@ class Monument extends Model
      */
     public function getFeaturedPhotoAttribute()
     {
-        // Prefer synced photo if exists
-        $photo = $this->photos()->where('is_featured', true)->first() ?? $this->photos()->first();
-        if ($photo) {
-            return $photo;
+        // Avoid N+1 queries by preferring eager-loaded relations
+        if ($this->relationLoaded('featuredPhoto') && $this->featuredPhoto) {
+            return $this->featuredPhoto;
         }
-        // Fallback to Commons image stored in properties
+        if ($this->relationLoaded('firstPhoto') && $this->firstPhoto) {
+            return $this->firstPhoto;
+        }
+
+        // Fallback to Commons image stored in properties (no DB queries)
         $image = $this->properties['image'] ?? null;
         if ($image) {
             return (object) [
