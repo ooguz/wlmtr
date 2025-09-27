@@ -141,6 +141,16 @@ class MonumentController extends Controller
 
         $compute = function () use ($query) {
             return $query->get()->map(function ($monument) {
+                // Resolve a simple featured photo URL for lightweight map payloads
+                $featured = null;
+                $fp = $monument->featured_photo;
+                if ($fp) {
+                    if (is_object($fp)) {
+                        $featured = $fp->display_url ?? $fp->full_resolution_url ?? null;
+                    } else {
+                        $featured = $fp;
+                    }
+                }
                 return [
                     'id' => $monument->id,
                     'wikidata_id' => $monument->wikidata_id,
@@ -152,7 +162,7 @@ class MonumentController extends Controller
                     ],
                     'has_photos' => (bool) $monument->has_photos,
                     'photo_count' => (int) $monument->photo_count,
-                    'featured_photo' => null,
+                    'featured_photo' => $featured,
                     'province' => $monument->province,
                     'city' => $monument->city,
                     'district' => $monument->district,

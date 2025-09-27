@@ -72,6 +72,7 @@ class WikidataSparqlService
           ?placeLabel 
           ?placeAltLabel 
           ?placeDescription 
+          ?placeDescriptionEn 
           ?coordinates 
           ?instanceOf 
           ?instanceOfLabel 
@@ -114,6 +115,12 @@ class WikidataSparqlService
           OPTIONAL {
             ?place schema:description ?placeDescription.
             FILTER(LANG(?placeDescription) = "tr")
+          }
+
+          # İngilizce açıklama (fallback)
+          OPTIONAL {
+            ?place schema:description ?placeDescriptionEn.
+            FILTER(LANG(?placeDescriptionEn) = "en")
           }
 
           # Instance of (P31)
@@ -213,7 +220,7 @@ class WikidataSparqlService
             'wikidata_id' => $wikidataId,
             'name_tr' => $this->cleanLabel($binding['placeLabel']['value'] ?? null),
             'description_tr' => $this->cleanLabel($binding['placeDescription']['value'] ?? null),
-            'description_en' => null, // Not in optimized query, will be filled later if needed
+            'description_en' => $this->cleanLabel($binding['placeDescriptionEn']['value'] ?? null),
             'aka' => ! empty($aliases) ? implode(', ', $aliases) : null,
             'kulturenvanteri_id' => $binding['monumentId']['value'] ?? null,
             'commons_category' => $commonsCategory,
@@ -329,9 +336,14 @@ class WikidataSparqlService
                     $existingMonument = Monument::where('wikidata_id', $monumentData['wikidata_id'])->first();
                     $isNew = ! $existingMonument;
 
+                    // Avoid overwriting existing values with nulls by filtering nulls out
+                    $nonNullAttributes = array_filter($monumentData, static function ($value) {
+                        return $value !== null;
+                    });
+
                     $monument = Monument::updateOrCreate(
                         ['wikidata_id' => $monumentData['wikidata_id']],
-                        array_merge($monumentData, [
+                        array_merge($nonNullAttributes, [
                             'last_synced_at' => now(),
                         ])
                     );

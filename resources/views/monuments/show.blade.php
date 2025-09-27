@@ -373,14 +373,25 @@
                         </a>
                     @endif
                     
-                    @if($monument->commons_url)
-                        <a href="{{ $monument->commons_url }}" 
+                    @if($monument->commons_category)
+                        <a href="https://commons.wikimedia.org/wiki/Category:{{ $monument->commons_category }}" 
                            target="_blank"
                            class="flex items-center text-blue-600 hover:text-blue-800">
                             <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"></path>
                             </svg>
                             Wikimedia Commons
+                        </a>
+                    @endif
+
+                    @if($monument->kulturenvanteri_id)
+                        <a href="https://kulturenvanteri.com/yer/?p={{ $monument->kulturenvanteri_id }}" 
+                           target="_blank"
+                           class="flex items-center text-blue-600 hover:text-blue-800">
+                            <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                            </svg>
+                            Kültür Envanteri
                         </a>
                     @endif
                     
