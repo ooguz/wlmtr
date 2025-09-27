@@ -116,7 +116,7 @@
             <div class="flex items-center gap-2">
                 <span>👤</span>
                 <div>
-                    <div class="text-sm font-semibold">{{ auth()->user()->username }}</div>
+                    <div class="text-sm font-semibold">{{ auth()->user()->display_name }}</div>
                     <div class="text-xs text-gray-500">Profiliniz ve ayarlar</div>
                 </div>
             </div>
@@ -127,7 +127,7 @@
                 <span>↪️</span>
                 <div>
                     <div class="text-sm font-semibold">Giriş Yap</div>
-                    <div class="text-xs text-gray-500">Wikimedia ile</div>
+                    <div class="text-xs text-gray-500">Wikimedia hesabınız ile</div>
                 </div>
             </div>
         </a>
@@ -653,16 +653,28 @@ document.addEventListener('DOMContentLoaded', function() {
             setupPhotoCarousel(monument.photos);
             photoCarousel.classList.remove('hidden');
         } else if (monument.featured_photo) {
-            setupPhotoCarousel([
-                {
-                    full_resolution_url: monument.featured_photo,
-                    display_url: monument.featured_photo,
+            let fp = monument.featured_photo;
+            let photoObj;
+            if (typeof fp === 'string') {
+                photoObj = {
+                    full_resolution_url: fp,
+                    display_url: fp,
                     title: monument.name,
                     photographer: null,
                     license: null,
                     commons_url: null,
-                },
-            ]);
+                };
+            } else {
+                photoObj = {
+                    full_resolution_url: fp.full_resolution_url || fp.display_url || null,
+                    display_url: fp.display_url || fp.full_resolution_url || null,
+                    title: fp.title || monument.name,
+                    photographer: fp.photographer || null,
+                    license: fp.license || null,
+                    commons_url: fp.commons_url || null,
+                };
+            }
+            setupPhotoCarousel([photoObj]);
             photoCarousel.classList.remove('hidden');
         } else {
             photoCarousel.classList.add('hidden');
