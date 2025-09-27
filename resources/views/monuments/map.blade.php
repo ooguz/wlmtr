@@ -116,7 +116,7 @@
             <div class="flex items-center gap-2">
                 <span>👤</span>
                 <div>
-                    <div class="text-sm font-semibold">{{ auth()->user()->display_name }}</div>
+                    <div class="text-sm font-semibold">{{ auth()->user()->wikimedia_username }}</div>
                     <div class="text-xs text-gray-500">Profiliniz ve ayarlar</div>
                 </div>
             </div>
