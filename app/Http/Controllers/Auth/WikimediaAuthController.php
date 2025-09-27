@@ -51,11 +51,19 @@ class WikimediaAuthController extends Controller
         try {
             $socialiteUser = Socialite::driver('wikimedia')->user();
 
+            // Wikimedia may not share email. Generate a stable synthetic email to satisfy DB constraints.
+            $resolvedEmail = $socialiteUser->getEmail();
+            if (empty($resolvedEmail)) {
+                $usernameFallback = $socialiteUser->getNickname() ?? $socialiteUser->getName() ?? 'user';
+                $idFallback = $socialiteUser->getId() ?: uniqid('wm_', true);
+                $resolvedEmail = strtolower($usernameFallback.'+'.(string) $idFallback.'@users.noreply.wikimedia.local');
+            }
+
             $userData = [
                 'wikimedia_id' => $socialiteUser->getId(),
                 'username' => $socialiteUser->getNickname() ?? $socialiteUser->getName(),
                 'real_name' => $socialiteUser->getName(),
-                'email' => $socialiteUser->getEmail(),
+                'email' => $resolvedEmail,
                 'groups' => [],
                 'rights' => [],
                 'edit_count' => 0,
