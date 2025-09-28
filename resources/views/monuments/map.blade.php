@@ -6,7 +6,11 @@
 <!-- Loading Spinner -->
 <div id="loadingSpinner" class="fixed inset-0 bg-white bg-opacity-90 flex items-center justify-center" style="z-index: 99999;">
     <div class="text-center">
-        <div class="inline-block animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
+        <div class="relative inline-block mb-4" style="height: 120px; width: 120px;">
+            <img src="/wlm-logo.svg" alt="WLM Turkey" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-14 w-14" style="z-index: 2;">
+            <div class="absolute inset-1 rounded-full border-8 border-blue-200"></div>
+            <div class="absolute inset-0 rounded-full border-8 border-blue-600 border-t-transparent animate-spin shadow-md"></div>
+        </div>
         <p class="text-lg font-medium text-gray-700">Anıtlar yükleniyor...</p>
         <p class="text-sm text-gray-500 mt-2">Lütfen bekleyin</p>
     </div>

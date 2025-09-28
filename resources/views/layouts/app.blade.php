@@ -55,7 +55,7 @@
                     <div class="flex">
                         <div class="flex-shrink-0 flex items-center">
                             <a href="{{ route('home') }}" class="text-xl font-bold text-gray-900">
-                                🏛️ WLM Turkey
+                             <!--   🏛️ WLM Turkey --> <img src="/wlm-logo-h.svg" alt="WLM Turkey" class="h-8">
                             </a>
                         </div>
                         <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
