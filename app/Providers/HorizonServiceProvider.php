@@ -18,6 +18,12 @@ class HorizonServiceProvider extends HorizonApplicationServiceProvider
         // Horizon::routeSmsNotificationsTo('15556667777');
         // Horizon::routeMailNotificationsTo('example@example.com');
         // Horizon::routeSlackNotificationsTo('slack-webhook-url', '#channel');
+        Horizon::auth(function ($request) {
+            $username = env('BASICAUTH_USERNAME');
+            $password = env('BASICAUTH_PASSWORD');
+
+            return $request->getUser() === $username && $request->getPassword() === $password;
+        });
     }
 
     /**

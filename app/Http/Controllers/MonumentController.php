@@ -415,6 +415,22 @@ class MonumentController extends Controller
     }
 
     /**
+     * API: Warm cache for Turkey-wide markers.
+     */
+    public function apiWarmTurkeyMarkers(Request $request): JsonResponse
+    {
+        $provided = (string) ($request->header('X-Cache-Warm-Token') ?? $request->get('token', ''));
+        $expected = (string) config('services.cache_warm.token');
+
+        if ($expected === '' || hash_equals($expected, $provided) === false) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        \App\Jobs\WarmTurkeyMarkersJob::dispatch();
+        return response()->json(['success' => true, 'queued' => true]);
+    }
+
+    /**
      * API: Test image display from Wikimedia Commons without storing locally.
      */
     public function apiTestImages(Request $request): JsonResponse

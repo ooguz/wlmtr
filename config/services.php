@@ -44,4 +44,8 @@ return [
         'user_agent' => env('WIKIMEDIA_USER_AGENT', 'WLM-TR/1.0 (+https://meta.wikimedia.org/wiki/User_talk:Magurale)'),
     ],
 
+    'cache_warm' => [
+        'token' => env('CACHE_WARM_TOKEN'),
+    ],
+
 ];

@@ -39,6 +39,10 @@ Route::prefix('api')->name('api.')->group(function () {
     Route::get('/monuments/test/images', [MonumentController::class, 'apiTestImages'])->name('monuments.test-images');
     Route::get('/wikidata/label/{qcode}', [MonumentController::class, 'apiWikidataLabel'])->name('wikidata.label');
 
+    // Cache warm endpoint (secured via static token header or query parameter)
+    Route::post('/cache/warm/monuments/turkey', [MonumentController::class, 'apiWarmTurkeyMarkers'])
+        ->name('cache.warm.turkey');
+
     // Serve OpenAPI spec
     Route::get('/docs/openapi', function () {
         $path = public_path('openapi.yaml');

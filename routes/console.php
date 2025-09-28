@@ -30,7 +30,15 @@ Schedule::job(new SyncMonumentDescriptions())
     ->name('sync-monument-descriptions');
 */
 
-Schedule::job(new SyncMonumentsUnifiedJob())
+Schedule::job(new SyncMonumentsUnifiedJob)
     ->everyTenMinutes()
     ->withoutOverlapping()
+    ->onOneServer()
     ->name('sync-monuments-unified');
+
+// Warm Turkey-wide markers cache every 10 minutes
+Schedule::command('cache:warm-turkey-markers')
+    ->everyTenMinutes()
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->name('warm-turkey-markers');
