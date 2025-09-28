@@ -249,6 +249,13 @@
                         </div>
                     @endif
 
+                    @if($monument->properties["instance_of_label_tr"])
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Tür</dt>
+                            <dd class="mt-1 text-sm text-gray-900">{{ $monument->properties["instance_of_label_tr"] }}</dd>
+                        </div>
+                    @endif
+
                     @if($monument->location_hierarchy_tr)
                         <div>
                             <dt class="text-sm font-medium text-gray-500">Konum</dt>
