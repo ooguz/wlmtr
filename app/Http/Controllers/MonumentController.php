@@ -99,7 +99,7 @@ class MonumentController extends Controller
     }
 
     /**
-     * API: Get map data. Returns server-side clusters for low zooms and thin markers for high zooms.
+     * API: Get map markers (thin payload) with optional filters.
      */
     public function apiMapMarkers(Request $request): JsonResponse
     {
@@ -116,68 +116,46 @@ class MonumentController extends Controller
                 ->whereBetween('longitude', [$b['west'], $b['east']]);
         }
 
-        // Lightweight cluster mode for low zooms
-        $clusterZoomThreshold = 11; // < 11 => cluster, >= 11 => raw markers
+        // Optional filters from UI
+        if ($request->filled('q')) {
+            $query->search($request->string('q'));
+        }
+        if ($request->filled('province')) {
+            $query->byProvince($request->get('province'));
+        }
+        if ($request->filled('category')) {
+            $categoryId = $request->get('category');
+            $query->whereHas('categories', function ($q) use ($categoryId) {
+                $q->where('categories.id', $categoryId);
+            });
+        }
+        if ($request->has('has_photos')) {
+            if ($request->get('has_photos') === '1') {
+                $query->withPhotos();
+            } else {
+                $query->withoutPhotos();
+            }
+        }
 
-        // Cache key scoped by zoom + quantized bounds to limit cardinality
+        // Cache key: zoom + quantized bounds + filters hash
         $cacheKey = null;
         if ($request->filled('bounds')) {
             $precision = $zoom >= 12 ? 3 : ($zoom >= 9 ? 2 : 1);
             $q = function ($v) use ($precision) {
                 return round((float) $v, $precision);
             };
-            $cacheKey = 'map:'.implode(':', ['z'.$zoom, $q($b['south']), $q($b['west']), $q($b['north']), $q($b['east'])]);
+            $filtersHash = md5(json_encode([
+                'q' => $request->get('q'),
+                'province' => $request->get('province'),
+                'category' => $request->get('category'),
+                'has_photos' => $request->get('has_photos'),
+            ]));
+            $cacheKey = 'markers:'.implode(':', ['z'.$zoom, $q($b['south']), $q($b['west']), $q($b['north']), $q($b['east']), $filtersHash]);
         }
 
-        if ($zoom < $clusterZoomThreshold) {
-            $compute = function () use ($query, $zoom, $b) {
-                $points = $query->get(['id', 'latitude', 'longitude']);
-                // Derive grid cell size from viewport so counts look natural
-                $latSpan = max(0.0001, (float) ($b['north'] - $b['south']));
-                $lngSpan = max(0.0001, (float) ($b['east'] - $b['west']));
-                // Target number of columns increases with zoom
-                $targetCols = max(12, min(64, $zoom * 6));
-                $cellLat = $latSpan / max(8, (int) round($targetCols * 0.6));
-                $cellLng = $lngSpan / $targetCols;
-
-                $grid = [];
-                foreach ($points as $p) {
-                    $gx = (int) floor((((float) $p->longitude) - (float) $b['west']) / $cellLng);
-                    $gy = (int) floor((((float) $p->latitude) - (float) $b['south']) / $cellLat);
-                    $key = $gx.':'.$gy;
-                    if (! isset($grid[$key])) {
-                        $grid[$key] = [
-                            'type' => 'cluster',
-                            'count' => 0,
-                            'coordinates' => ['lat' => 0.0, 'lng' => 0.0],
-                        ];
-                    }
-                    $grid[$key]['count']++;
-                    $grid[$key]['coordinates']['lat'] += (float) $p->latitude;
-                    $grid[$key]['coordinates']['lng'] += (float) $p->longitude;
-                }
-
-                // Convert sums to centroids
-                foreach ($grid as $k => $bucket) {
-                    if ($bucket['count'] > 0) {
-                        $grid[$k]['coordinates']['lat'] = $bucket['coordinates']['lat'] / $bucket['count'];
-                        $grid[$k]['coordinates']['lng'] = $bucket['coordinates']['lng'] / $bucket['count'];
-                    }
-                }
-
-                return array_values($grid);
-            };
-
-            $data = $cacheKey ? Cache::remember($cacheKey, 120, $compute) : $compute();
-
-            return response()->json($data)->header('Cache-Control', 'public, max-age=60');
-        }
-
-        // High zoom: return thin markers with only essentials; details fetched on demand
-        $computeMarkers = function () use ($query) {
-            return $query->limit(5000)->get()->map(function ($m) {
+        $compute = function () use ($query) {
+            return $query->limit(8000)->get()->map(function ($m) {
                 return [
-                    'type' => 'marker',
                     'id' => $m->id,
                     'wikidata_id' => $m->wikidata_id,
                     'name' => $m->name_tr ?? $m->name_en ?? 'Unnamed Monument',
@@ -185,12 +163,15 @@ class MonumentController extends Controller
                         'lat' => (float) $m->latitude,
                         'lng' => (float) $m->longitude,
                     ],
+                    'province' => $m->province,
+                    'has_photos' => (bool) $m->has_photos,
+                    'photo_count' => (int) $m->photo_count,
                     'url' => "/monuments/{$m->id}",
                 ];
             });
         };
 
-        $markers = $cacheKey ? Cache::remember($cacheKey, 60, $computeMarkers) : $computeMarkers();
+        $markers = $cacheKey ? Cache::remember($cacheKey, 60, $compute) : $compute();
 
         return response()->json($markers)->header('Cache-Control', 'public, max-age=60');
     }

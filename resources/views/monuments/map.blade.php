@@ -344,11 +344,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const visibleMarkers = [];
         
         markers.forEach(marker => {
-            // Always show server-generated clusters
-            if (marker.type === 'cluster') {
-                visibleMarkers.push(marker);
-                return;
-            }
             let show = true;
             
             // Debug: Log first few monuments to see their data structure
@@ -535,49 +530,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 markerCluster.clearLayers();
 
                 (data || []).forEach(item => {
-                    // Server returns clusters on low zooms and simple markers on high zooms
-                    if (item.type === 'cluster') {
-                        const icon = L.divIcon({
-                            html: `<div class="cluster-badge">${item.count}</div>`,
-                            className: 'cluster-marker',
-                            iconSize: [36, 36],
-                            iconAnchor: [18, 18]
-                        });
-                        const m = L.marker([item.coordinates.lat, item.coordinates.lng], { icon });
-                        m.type = 'cluster';
-                        markers.push(m);
-                        m.on('click', function() {
-                            const nextZoom = Math.min((map.getMaxZoom && map.getMaxZoom()) || 18, map.getZoom() + 2);
-                            map.setView([item.coordinates.lat, item.coordinates.lng], nextZoom);
-                        });
-                    } else {
-                        const marker = L.circleMarker([item.coordinates.lat, item.coordinates.lng], {
-                            radius: 6,
-                            fillColor: '#3B82F6',
-                            color: '#1E40AF',
-                            weight: 2,
-                            opacity: 1,
-                            fillOpacity: 0.8
-                        });
-                        marker.type = 'marker';
-                        marker.monument = item;
-                        markers.push(marker);
-                        
-                        // Click event with lazy detail fetch when needed
-                        marker.on('click', function() {
-                            const hasDetails = !!(item.description || item.photo_count !== undefined || item.location_hierarchy_tr);
-                            if (hasDetails) {
-                                showMonumentInfo(item);
-                            } else if (item.id) {
-                                fetch(`/api/monuments/${item.id}`)
-                                    .then(r => r.json())
-                                    .then(full => showMonumentInfo(full))
-                                    .catch(() => showMonumentInfo(item));
-                            } else {
-                                showMonumentInfo(item);
-                            }
-                        });
-                    }
+                    const marker = L.circleMarker([item.coordinates.lat, item.coordinates.lng], {
+                        radius: 6,
+                        fillColor: '#3B82F6',
+                        color: '#1E40AF',
+                        weight: 2,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    });
+                    marker.type = 'marker';
+                    marker.monument = item;
+                    markers.push(marker);
+                    
+                    // Click event with lazy detail fetch when needed
+                    marker.on('click', function() {
+                        const hasDetails = !!(item.description || item.photo_count !== undefined || item.location_hierarchy_tr);
+                        if (hasDetails) {
+                            showMonumentInfo(item);
+                        } else if (item.id) {
+                            fetch(`/api/monuments/${item.id}`)
+                                .then(r => r.json())
+                                .then(full => showMonumentInfo(full))
+                                .catch(() => showMonumentInfo(item));
+                        } else {
+                            showMonumentInfo(item);
+                        }
+                    });
                 });
 
                 // Respect current filters when adding to cluster
