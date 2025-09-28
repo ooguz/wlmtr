@@ -66,7 +66,19 @@ class SyncMonumentsUnified extends Command
                         $this->info("🔄 Batch {$payload['batch']} starting (offset {$payload['offset']}, limit {$payload['limit']})");
                         break;
                     case 'end_batch':
-                        $this->line("   ✅ Batch {$payload['batch']} → synced: {$payload['synced']}, new: {$payload['new']}, updated: {$payload['updated']}, errors: {$payload['errors']} (total: {$payload['total']})");
+                        $status = $payload['http_status'] ?? 'n/a';
+                        $this->line("   ✅ Batch {$payload['batch']} → synced: {$payload['synced']}, new: {$payload['new']}, updated: {$payload['updated']}, errors: {$payload['errors']} (total: {$payload['total']}) | status: {$status}");
+
+                        $examples = $payload['examples'] ?? [];
+                        if (! empty($examples)) {
+                            $this->line('     e.g.:');
+                            foreach ($examples as $ex) {
+                                $name = $ex['name_tr'] ?? '-';
+                                $qid = $ex['wikidata_id'] ?? '-';
+                                $ke = $ex['kulturenvanteri_id'] ?? '-';
+                                $this->line("       - {$name} ({$qid}) KE: {$ke}");
+                            }
+                        }
                         break;
                     case 'complete':
                         $this->newLine();

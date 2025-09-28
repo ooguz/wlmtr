@@ -13,6 +13,11 @@ class WikidataSparqlService
     private const USER_AGENT = 'WikiLovesMonumentsTurkey/1.0 (https://wlmtr.org; mailto:info@wlmtr.org)';
 
     /**
+     * Last HTTP status returned by the SPARQL endpoint.
+     */
+    public ?int $lastHttpStatus = null;
+
+    /**
      * Fetch monuments from Wikidata using SPARQL query.
      */
     public function fetchMonuments(int $offset = 0, int $limit = 1000): array
@@ -28,6 +33,8 @@ class WikidataSparqlService
                 'query' => $query,
                 'format' => 'json',
             ]);
+
+            $this->lastHttpStatus = $response->status();
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -51,6 +58,7 @@ class WikidataSparqlService
                 return [];
             }
         } catch (\Exception $e) {
+            $this->lastHttpStatus = null;
             Log::error('Exception during Wikidata SPARQL query', [
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
@@ -394,12 +402,23 @@ class WikidataSparqlService
             $totalNew += $batchNew;
             $totalErrors += $batchErrors;
 
+            // Prepare up to 3 example monuments from this batch for progress reporting
+            $examples = [];
+            foreach (array_slice($monuments, 0, 3) as $m) {
+                $examples[] = [
+                    'wikidata_id' => $m['wikidata_id'] ?? null,
+                    'name_tr' => $m['name_tr'] ?? null,
+                    'kulturenvanteri_id' => $m['kulturenvanteri_id'] ?? null,
+                ];
+            }
+
             Log::info("✅ Batch {$batchNumber} completed", [
                 'synced' => $batchSynced,
                 'new' => $batchNew,
                 'updated' => $batchUpdated,
                 'errors' => $batchErrors,
                 'total_so_far' => $totalSynced,
+                'http_status' => $this->lastHttpStatus,
             ]);
 
             if ($reportProgress !== null) {
@@ -411,6 +430,8 @@ class WikidataSparqlService
                         'updated' => $batchUpdated,
                         'errors' => $batchErrors,
                         'total' => $totalSynced,
+                        'http_status' => $this->lastHttpStatus,
+                        'examples' => $examples,
                     ]);
                 } catch (\Throwable $e) {
                     // ignore progress reporting errors
