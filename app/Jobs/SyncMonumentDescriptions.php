@@ -43,6 +43,11 @@ class SyncMonumentDescriptions implements ShouldQueue
      */
     public function handle(): void
     {
+        $lock = \Cache::lock('jobs:sync-monument-descriptions', 600);
+        if (! $lock->get()) {
+            return;
+        }
+        try {
         Log::info('Starting monument detailed data synchronization');
 
         $service = new WikidataSparqlService();
@@ -166,6 +171,9 @@ class SyncMonumentDescriptions implements ShouldQueue
         if ($monuments->count() === $this->batchSize) {
             self::dispatch()->delay(now()->addMinutes(10));
             Log::info('Dispatched next detailed data sync job');
+        }
+        } finally {
+            optional($lock)->release();
         }
     }
 

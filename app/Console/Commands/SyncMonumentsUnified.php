@@ -52,7 +52,7 @@ class SyncMonumentsUnified extends Command
             $startTime = microtime(true);
 
             // Dispatch as a queued job so it can be scheduled or run async as needed
-            SyncMonumentsUnifiedJob::dispatch($batchSize, $maxBatches);
+            SyncMonumentsUnifiedJob::dispatch($batchSize, $maxBatches)->onQueue('default');
             $syncedCount = 0;
 
             $endTime = microtime(true);

@@ -27,6 +27,12 @@ class SyncMonumentsUnifiedJob implements ShouldQueue
      */
     public function handle(WikidataSparqlService $sparqlService): void
     {
+        // Prevent overlapping runs by using a cache lock
+        $lock = \Cache::lock('jobs:sync-monuments-unified', 1800);
+        if (! $lock->get()) {
+            return;
+        }
+        try {
         $startTime = microtime(true);
 
         $syncedCount = $sparqlService->syncMonumentsToDatabase($this->batchSize, $this->maxBatches);
@@ -44,8 +50,12 @@ class SyncMonumentsUnifiedJob implements ShouldQueue
 
         // Follow-up: backfill descriptions for any remaining gaps
         SyncMonumentDescriptions::dispatch();
+        } finally {
+            optional($lock)->release();
+        }
     }
 }
+
 
 
 
