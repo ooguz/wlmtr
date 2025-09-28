@@ -104,6 +104,7 @@ class MonumentController extends Controller
     public function apiMapMarkers(Request $request): JsonResponse
     {
         $zoom = (int) $request->get('zoom', 0);
+        $coverage = (string) $request->get('coverage', '');
         $b = $request->get('bounds');
 
         $query = Monument::query()
@@ -111,7 +112,22 @@ class MonumentController extends Controller
             ->whereNotNull('latitude')
             ->whereNotNull('longitude');
 
-        if ($request->filled('bounds')) {
+        // Apply bounds: either explicit bounds from request or full Turkey coverage when requested
+        $applyBounds = false;
+        if ($coverage === 'turkey') {
+            // Approximate bounding box for Turkey (includes entire mainland and main territories)
+            $b = [
+                'south' => 35.8,
+                'west' => 25.9,
+                'north' => 42.3,
+                'east' => 45.0,
+            ];
+            $applyBounds = true;
+        } elseif ($request->filled('bounds')) {
+            $applyBounds = true;
+        }
+
+        if ($applyBounds) {
             $query->whereBetween('latitude', [$b['south'], $b['north']])
                 ->whereBetween('longitude', [$b['west'], $b['east']]);
         }
@@ -137,19 +153,24 @@ class MonumentController extends Controller
             }
         }
 
-        // Cache key: zoom + quantized bounds + filters hash
+        // Cache key and TTL
         $cacheKey = null;
-        if ($request->filled('bounds')) {
+        $ttlSeconds = $coverage === 'turkey' ? 600 : 60; // Longer cache for full-country initial load
+        $filtersHash = md5(json_encode([
+            'q' => $request->get('q'),
+            'province' => $request->get('province'),
+            'category' => $request->get('category'),
+            'has_photos' => $request->get('has_photos'),
+        ]));
+
+        if ($coverage === 'turkey') {
+            $cacheKey = 'markers:coverage:turkey:'.$filtersHash;
+        } elseif ($request->filled('bounds')) {
+            // Cache key: zoom + quantized bounds + filters hash
             $precision = $zoom >= 12 ? 3 : ($zoom >= 9 ? 2 : 1);
             $q = function ($v) use ($precision) {
                 return round((float) $v, $precision);
             };
-            $filtersHash = md5(json_encode([
-                'q' => $request->get('q'),
-                'province' => $request->get('province'),
-                'category' => $request->get('category'),
-                'has_photos' => $request->get('has_photos'),
-            ]));
             $cacheKey = 'markers:'.implode(':', ['z'.$zoom, $q($b['south']), $q($b['west']), $q($b['north']), $q($b['east']), $filtersHash]);
         }
 
@@ -180,6 +201,7 @@ class MonumentController extends Controller
                         ];
                     }
                 }
+
                 return [
                     'id' => $m->id,
                     'wikidata_id' => $m->wikidata_id,
@@ -200,9 +222,9 @@ class MonumentController extends Controller
             });
         };
 
-        $markers = $cacheKey ? Cache::remember($cacheKey, 60, $compute) : $compute();
+        $markers = $cacheKey ? Cache::remember($cacheKey, $ttlSeconds, $compute) : $compute();
 
-        return response()->json($markers)->header('Cache-Control', 'public, max-age=60');
+        return response()->json($markers)->header('Cache-Control', 'public, max-age='.$ttlSeconds);
     }
 
     /**

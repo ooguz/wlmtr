@@ -286,20 +286,21 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Load monuments after first tile loads, using viewport bounds
+    // Load monuments after first tile loads, using single Turkey-wide request
     let firstTileLoaded = false;
+    let hasTurkeyDatasetLoaded = false;
     
     map.on('tileload', function() {
         if (!firstTileLoaded) {
             firstTileLoaded = true;
-            setTimeout(fetchMarkersForCurrentView, 500);
+            setTimeout(fetchTurkeyWideMarkers, 500);
         }
     });
     
     // Fallback: load monuments after 5 seconds even if no tiles load
     setTimeout(function() {
         if (!firstTileLoaded) {
-            fetchMarkersForCurrentView();
+            fetchTurkeyWideMarkers();
         }
     }, 5000);
     
@@ -434,17 +435,11 @@ document.addEventListener('DOMContentLoaded', function() {
         return R * c;
     }
     
-    // Build API URL for current map bounds
-    function buildMarkersUrl() {
-        const b = map.getBounds();
-        const sw = b.getSouthWest();
-        const ne = b.getNorthEast();
+    // Build API URL for Turkey-wide markers (optionally with filters)
+    function buildTurkeyMarkersUrl() {
         const zoom = map.getZoom();
         const params = new URLSearchParams();
-        params.set('bounds[south]', sw.lat);
-        params.set('bounds[west]', sw.lng);
-        params.set('bounds[north]', ne.lat);
-        params.set('bounds[east]', ne.lng);
+        params.set('coverage', 'turkey');
         params.set('zoom', zoom);
         // Send filters to backend (server-side filtering)
         const q = (searchInput.value || '').trim();
@@ -464,12 +459,16 @@ document.addEventListener('DOMContentLoaded', function() {
         debounceTimer = setTimeout(fetchMarkersForCurrentView, 350);
     }
 
-    map.on('moveend', scheduleFetchMarkers);
+    // Do NOT refetch on panning. Only consider refetching on zoom when filtered.
+    map.on('zoomend', function() {
+        if (isFiltered()) {
+            scheduleFetchMarkers();
+        }
+    });
 
-    // Load monuments from API for current viewport
-    function fetchMarkersForCurrentView() {
+    function fetchTurkeyWideMarkers() {
         const loadingSpinner = document.getElementById('loadingSpinner');
-        const url = buildMarkersUrl();
+        const url = buildTurkeyMarkersUrl();
         
         // Show spinner only if nothing is on the map yet
         const shouldShowSpinner = markers.length === 0;
@@ -528,6 +527,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Respect current filters when adding to cluster
                 applyFilters();
 
+                hasTurkeyDatasetLoaded = true;
+
                 // Load provinces for filter (only once)
                 if (!window._filtersLoadedOnce) {
                     window._filtersLoadedOnce = true;
@@ -543,6 +544,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     loadingSpinner.style.display = 'none';
                 }
             });
+    }
+
+    // Load monuments (reused by filter submits); if the Turkey dataset is already loaded and no filters are active, skip network
+    function fetchMarkersForCurrentView() {
+        if (hasTurkeyDatasetLoaded && !isFiltered() && markers.length > 0) {
+            return; // Already have data; re-clustering will adapt to zoom
+        }
+        return fetchTurkeyWideMarkers();
     }
     
     // Get province name from Wikidata
