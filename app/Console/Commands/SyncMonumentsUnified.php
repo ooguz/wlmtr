@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Jobs\SyncMonumentDescriptions;
-use App\Jobs\SyncMonumentsUnifiedJob;
+use Illuminate\Support\Facades\Cache;
 use App\Services\WikidataSparqlService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -48,23 +48,41 @@ class SyncMonumentsUnified extends Command
             $this->info("📋 Will process all available monuments in batches of {$batchSize}");
         }
 
+        // prevent overlapping with the scheduled job or another manual run
+        $lock = Cache::lock('jobs:sync-monuments-unified', 1800);
+        if (! $lock->get()) {
+            $this->warn('Another unified sync is already running. Exiting.');
+
+            return 0;
+        }
+
         try {
             $startTime = microtime(true);
 
-            // Dispatch as a queued job so it can be scheduled or run async as needed
-            SyncMonumentsUnifiedJob::dispatch($batchSize, $maxBatches)->onQueue('default');
-            $syncedCount = 0;
+            $syncedCount = $sparqlService->syncMonumentsToDatabase($batchSize, $maxBatches, function (string $event, array $payload = []) {
+                switch ($event) {
+                    case 'start_batch':
+                        $this->newLine();
+                        $this->info("🔄 Batch {$payload['batch']} starting (offset {$payload['offset']}, limit {$payload['limit']})");
+                        break;
+                    case 'end_batch':
+                        $this->line("   ✅ Batch {$payload['batch']} → synced: {$payload['synced']}, new: {$payload['new']}, updated: {$payload['updated']}, errors: {$payload['errors']} (total: {$payload['total']})");
+                        break;
+                    case 'complete':
+                        $this->newLine();
+                        $this->info('🎯 Unified monuments sync completed');
+                        $this->line("   Total synced: {$payload['total_synced']}, new: {$payload['total_new']}, updated: {$payload['total_updated']}, errors: {$payload['total_errors']}");
+                        $this->line("   Batches processed: {$payload['batches_processed']} (batch size: {$payload['batch_size']})");
+                        break;
+                }
+            });
 
-            $endTime = microtime(true);
-            $duration = round($endTime - $startTime, 2);
+            $duration = round(microtime(true) - $startTime, 2);
 
             $this->newLine();
-            $this->info('✅ Unified sync job dispatched successfully!');
-            $this->info("⏱️ Dispatch time {$duration} seconds (processing continues in queue)");
+            $this->info("✅ Unified sync finished in {$duration} seconds");
 
-            $this->info('⚡ Average will be logged by the job after completion.');
-
-            // Summary of what was synced in this unified approach
+            // Summary of what was synchronized
             $this->newLine();
             $this->info('📋 Data synchronized per monument:');
             $this->line('  • Name (Turkish)');
@@ -78,14 +96,15 @@ class SyncMonumentsUnified extends Command
             $this->line('  • Images (if available)');
             $this->line('  • Location hierarchy (via P131 chain)');
 
-            Log::info('Unified monuments sync command dispatched job', [
+            Log::info('Unified monuments sync command completed', [
                 'batch_size' => $batchSize,
                 'max_batches' => $maxBatches,
+                'synced' => $syncedCount,
+                'duration' => $duration,
             ]);
 
-            // Queue a follow-up job to backfill descriptions and related details
-            // for monuments that still have missing fields (does not mix languages)
-            // Follow-ups happen inside the job
+            // Trigger backfill for descriptions if needed (synchronously enqueue)
+            SyncMonumentDescriptions::dispatch();
 
         } catch (\Exception $e) {
             $this->error('❌ Unified sync failed: '.$e->getMessage());
@@ -98,6 +117,8 @@ class SyncMonumentsUnified extends Command
             ]);
 
             return 1;
+        } finally {
+            optional($lock)->release();
         }
 
         $this->newLine();

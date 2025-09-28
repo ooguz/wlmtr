@@ -42,3 +42,9 @@ Schedule::command('cache:warm-turkey-markers')
     ->withoutOverlapping()
     ->onOneServer()
     ->name('warm-turkey-markers');
+
+// Capture Horizon metrics for dashboard graphs
+Schedule::command('horizon:snapshot')
+    ->everyFiveMinutes()
+    ->onOneServer()
+    ->name('horizon-snapshot');

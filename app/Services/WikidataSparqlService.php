@@ -306,7 +306,7 @@ class WikidataSparqlService
      * Sync monuments data to database using the optimized comprehensive approach.
      * This method now handles all the data from the unified SPARQL query.
      */
-    public function syncMonumentsToDatabase(int $batchSize = 500, ?int $maxBatches = null): int
+    public function syncMonumentsToDatabase(int $batchSize = 500, ?int $maxBatches = null, ?callable $reportProgress = null): int
     {
         $totalSynced = 0;
         $totalUpdated = 0;
@@ -317,6 +317,17 @@ class WikidataSparqlService
 
         while (true) {
             Log::info("🔄 Fetching batch {$batchNumber} (offset: {$offset}, limit: {$batchSize})");
+            if ($reportProgress !== null) {
+                try {
+                    $reportProgress('start_batch', [
+                        'batch' => $batchNumber,
+                        'offset' => $offset,
+                        'limit' => $batchSize,
+                    ]);
+                } catch (\Throwable $e) {
+                    // ignore progress reporting errors
+                }
+            }
 
             $monuments = $this->fetchMonuments($offset, $batchSize);
 
@@ -391,6 +402,21 @@ class WikidataSparqlService
                 'total_so_far' => $totalSynced,
             ]);
 
+            if ($reportProgress !== null) {
+                try {
+                    $reportProgress('end_batch', [
+                        'batch' => $batchNumber,
+                        'synced' => $batchSynced,
+                        'new' => $batchNew,
+                        'updated' => $batchUpdated,
+                        'errors' => $batchErrors,
+                        'total' => $totalSynced,
+                    ]);
+                } catch (\Throwable $e) {
+                    // ignore progress reporting errors
+                }
+            }
+
             $offset += $batchSize;
             $batchNumber++;
 
@@ -419,6 +445,22 @@ class WikidataSparqlService
             'batch_size' => $batchSize,
             'max_batches' => $maxBatches,
         ]);
+
+        if ($reportProgress !== null) {
+            try {
+                $reportProgress('complete', [
+                    'total_synced' => $totalSynced,
+                    'total_new' => $totalNew,
+                    'total_updated' => $totalUpdated,
+                    'total_errors' => $totalErrors,
+                    'batches_processed' => $batchNumber - 1,
+                    'batch_size' => $batchSize,
+                    'max_batches' => $maxBatches,
+                ]);
+            } catch (\Throwable $e) {
+                // ignore progress reporting errors
+            }
+        }
 
         return $totalSynced;
     }
