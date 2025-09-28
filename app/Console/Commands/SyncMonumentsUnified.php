@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Jobs\SyncMonumentDescriptions;
+use App\Jobs\SyncMonumentsUnifiedJob;
 use App\Services\WikidataSparqlService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -50,17 +51,18 @@ class SyncMonumentsUnified extends Command
         try {
             $startTime = microtime(true);
 
-            $syncedCount = $sparqlService->syncMonumentsToDatabase($batchSize, $maxBatches);
+            // Dispatch as a queued job so it can be scheduled or run async as needed
+            SyncMonumentsUnifiedJob::dispatch($batchSize, $maxBatches);
+            $syncedCount = 0;
 
             $endTime = microtime(true);
             $duration = round($endTime - $startTime, 2);
 
             $this->newLine();
-            $this->info('✅ Unified sync completed successfully!');
-            $this->info("📈 Synced {$syncedCount} monuments in {$duration} seconds");
+            $this->info('✅ Unified sync job dispatched successfully!');
+            $this->info("⏱️ Dispatch time {$duration} seconds (processing continues in queue)");
 
-            $avgTime = $syncedCount > 0 ? round($duration / $syncedCount, 3) : 0;
-            $this->info("⚡ Average: {$avgTime} seconds per monument");
+            $this->info('⚡ Average will be logged by the job after completion.');
 
             // Summary of what was synced in this unified approach
             $this->newLine();
@@ -76,17 +78,14 @@ class SyncMonumentsUnified extends Command
             $this->line('  • Images (if available)');
             $this->line('  • Location hierarchy (via P131 chain)');
 
-            Log::info('Unified monuments sync command completed', [
-                'synced_count' => $syncedCount,
-                'duration_seconds' => $duration,
+            Log::info('Unified monuments sync command dispatched job', [
                 'batch_size' => $batchSize,
                 'max_batches' => $maxBatches,
-                'avg_time_per_monument' => $avgTime,
             ]);
 
             // Queue a follow-up job to backfill descriptions and related details
             // for monuments that still have missing fields (does not mix languages)
-            SyncMonumentDescriptions::dispatch();
+            // Follow-ups happen inside the job
 
         } catch (\Exception $e) {
             $this->error('❌ Unified sync failed: '.$e->getMessage());

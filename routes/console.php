@@ -3,6 +3,7 @@
 use App\Jobs\SyncAllMonumentData;
 use App\Jobs\SyncMonumentDescriptions;
 use App\Jobs\SyncMonumentLocations;
+use App\Jobs\SyncMonumentsUnifiedJob;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -29,8 +30,7 @@ Schedule::job(new SyncMonumentDescriptions())
     ->name('sync-monument-descriptions');
 */
 
-Schedule::job(new SyncMonumentsUnified())
+Schedule::job(new SyncMonumentsUnifiedJob())
     ->everyTenMinutes()
     ->withoutOverlapping()
-    ->logOutput()
     ->name('sync-monuments-unified');
