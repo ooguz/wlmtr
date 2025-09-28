@@ -242,6 +242,13 @@
                         </div>
                     @endif
 
+                    @if($monument->aka)
+                    <div>
+                            <dt class="text-sm font-medium text-gray-500">Diğer adlar</dt>
+                            <dd class="mt-1 text-sm text-gray-900">{{ $monument->aka }}</dd>
+                        </div>
+                    @endif
+
                     @if($monument->location_hierarchy_tr)
                         <div>
                             <dt class="text-sm font-medium text-gray-500">Konum</dt>
@@ -249,12 +256,6 @@
                         </div>
                     @endif
 
-                    @if($monument->address)
-                        <div>
-                            <dt class="text-sm font-medium text-gray-500">Adres</dt>
-                            <dd class="mt-1 text-sm text-gray-900">{{ $monument->address }}</dd>
-                        </div>
-                    @endif
 
                     @if($monument->category)
                         <div>
@@ -263,36 +264,6 @@
                         </div>
                     @endif
 
-                
-                    
-                    @if($monument->construction_date)
-                        <div>
-                            <dt class="text-sm font-medium text-gray-500">İnşa Tarihi</dt>
-                            <dd class="mt-1 text-sm text-gray-900">{{ $monument->construction_date }}</dd>
-                        </div>
-                    @endif
-                    
-                    @if($monument->architect)
-                        <div>
-                            <dt class="text-sm font-medium text-gray-500">Mimar</dt>
-                            <dd class="mt-1 text-sm text-gray-900">{{ $monument->architect }}</dd>
-                        </div>
-                    @endif
-                    
-                    @if($monument->style)
-                        <div>
-                            <dt class="text-sm font-medium text-gray-500">Mimari Stil</dt>
-                            <dd class="mt-1 text-sm text-gray-900">{{ $monument->style }}</dd>
-                        </div>
-                    @endif
-                    
-                    @if($monument->material)
-                        <div>
-                            <dt class="text-sm font-medium text-gray-500">Malzeme</dt>
-                            <dd class="mt-1 text-sm text-gray-900">{{ $monument->material }}</dd>
-                        </div>
-                    @endif
-                    
                     @if($monument->province)
                         <div>
                             <dt class="text-sm font-medium text-gray-500">İl</dt>
@@ -302,23 +273,6 @@
                         </div>
                     @endif
                     
-                    @if($monument->city)
-                        <div>
-                            <dt class="text-sm font-medium text-gray-500">Şehir</dt>
-                            <dd class="mt-1 text-sm text-gray-900">
-                                {{ \App\Services\WikidataSparqlService::getLabelForQCode($monument->city) }}
-                            </dd>
-                        </div>
-                    @endif
-                    
-                    @if($monument->district)
-                        <div>
-                            <dt class="text-sm font-medium text-gray-500">İlçe</dt>
-                            <dd class="mt-1 text-sm text-gray-900">
-                                {{ \App\Services\WikidataSparqlService::getLabelForQCode($monument->district) }}
-                            </dd>
-                        </div>
-                    @endif
                 </dl>
             </div>
             
