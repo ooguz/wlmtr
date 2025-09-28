@@ -154,7 +154,7 @@ class MonumentController extends Controller
         }
 
         $compute = function () use ($query) {
-            return $query->limit(8000)->get()->map(function ($m) {
+            return $query->get()->map(function ($m) {
                 return [
                     'id' => $m->id,
                     'wikidata_id' => $m->wikidata_id,

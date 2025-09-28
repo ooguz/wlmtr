@@ -230,7 +230,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize map
-    const map = L.map('map').setView([39.9334, 32.8597], 6); // Turkey center
+    const map = L.map('map').setView([39.0, 34.5], 6); // Wider center to include east/west margins
     
     // Add OpenStreetMap tiles
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
