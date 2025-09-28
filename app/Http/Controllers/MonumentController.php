@@ -155,7 +155,7 @@ class MonumentController extends Controller
 
         // Cache key and TTL
         $cacheKey = null;
-        $ttlSeconds = $coverage === 'turkey' ? 600 : 60; // Longer cache for full-country initial load
+        $ttlSeconds = $coverage === 'turkey' ? 600 : 60; // Response caching header only; data is pre-warmed
         $filtersHash = md5(json_encode([
             'q' => $request->get('q'),
             'province' => $request->get('province'),
@@ -221,6 +221,20 @@ class MonumentController extends Controller
                 ];
             });
         };
+
+        if ($coverage === 'turkey' && $cacheKey) {
+            $cached = Cache::get($cacheKey);
+            if ($cached !== null) {
+                return response()->json($cached)
+                    ->header('Cache-Control', 'public, max-age='.$ttlSeconds)
+                    ->header('X-Cache', 'HIT');
+            }
+            // Miss: dispatch warm job and return fast, empty set
+            \App\Jobs\WarmTurkeyMarkersJob::dispatch();
+            return response()->json([])
+                ->header('Cache-Control', 'no-cache')
+                ->header('X-Cache', 'MISS');
+        }
 
         $markers = $cacheKey ? Cache::remember($cacheKey, $ttlSeconds, $compute) : $compute();
 

@@ -107,7 +107,8 @@ class WarmTurkeyMarkersJob implements ShouldQueue
                 });
             };
 
-            Cache::remember($cacheKey, 600, $compute);
+            // Warm with a slightly longer TTL to bridge refresh gaps
+            Cache::put($cacheKey, $compute(), now()->addMinutes(15));
         }
     }
 }
