@@ -12,6 +12,7 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 // Schedule monument data synchronization jobs
+/*
 Schedule::job(new SyncAllMonumentData())
     ->hourly()
     ->withoutOverlapping()
@@ -26,3 +27,10 @@ Schedule::job(new SyncMonumentDescriptions())
     ->everyThreeHours()
     ->withoutOverlapping()
     ->name('sync-monument-descriptions');
+*/
+
+Schedule::job(new SyncMonumentsUnified())
+    ->everyTenMinutes()
+    ->withoutOverlapping()
+    ->logOutput()
+    ->name('sync-monuments-unified');

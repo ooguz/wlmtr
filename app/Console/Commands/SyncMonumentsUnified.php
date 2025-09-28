@@ -13,8 +13,8 @@ class SyncMonumentsUnified extends Command
      * The name and signature of the console command.
      */
     protected $signature = 'monuments:sync-unified 
-                           {--batch-size=500 : Number of monuments to fetch per batch}
-                           {--max-batches= : Maximum number of batches to process}
+                           {--batch-size=500 : Number of monuments to fetch per batch (default: 500)}
+                           {--max-batches=60 : Maximum number of batches to process (default: 60)}
                            {--force : Skip confirmation prompt}';
 
     /**
@@ -27,19 +27,19 @@ class SyncMonumentsUnified extends Command
      */
     public function handle(WikidataSparqlService $sparqlService): int
     {
-        if (! $this->option('force')) {
+       /* if (! $this->option('force')) {
             if (! $this->confirm('This will sync all monument data using the unified approach. Continue?')) {
                 $this->info('Operation cancelled.');
 
                 return 0;
             }
-        }
+        } */
 
         $this->info('🚀 Starting unified monuments sync from Wikidata...');
         $this->info('📊 Using optimized SPARQL query that fetches comprehensive data');
 
         $batchSize = (int) $this->option('batch-size');
-        $maxBatches = $this->option('max-batches') ? (int) $this->option('max-batches') : null;
+        $maxBatches = (int) $this->option('max-batches');
 
         if ($maxBatches) {
             $this->info("📋 Will process maximum {$maxBatches} batches of {$batchSize} monuments each");
