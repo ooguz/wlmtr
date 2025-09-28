@@ -104,14 +104,14 @@ class MonumentController extends Controller
     public function apiMapMarkers(Request $request): JsonResponse
     {
         $zoom = (int) $request->get('zoom', 0);
+        $b = $request->get('bounds');
 
         $query = Monument::query()
-            ->select(['id', 'wikidata_id', 'name_tr', 'name_en', 'latitude', 'longitude'])
+            ->select(['id', 'wikidata_id', 'name_tr', 'name_en', 'latitude', 'longitude', 'province', 'has_photos', 'photo_count'])
             ->whereNotNull('latitude')
             ->whereNotNull('longitude');
 
         if ($request->filled('bounds')) {
-            $b = $request->get('bounds');
             $query->whereBetween('latitude', [$b['south'], $b['north']])
                 ->whereBetween('longitude', [$b['west'], $b['east']]);
         }
@@ -126,23 +126,24 @@ class MonumentController extends Controller
             $q = function ($v) use ($precision) {
                 return round((float) $v, $precision);
             };
-            $b = $request->get('bounds');
             $cacheKey = 'map:'.implode(':', ['z'.$zoom, $q($b['south']), $q($b['west']), $q($b['north']), $q($b['east'])]);
         }
 
         if ($zoom < $clusterZoomThreshold) {
-            $compute = function () use ($query, $zoom) {
+            $compute = function () use ($query, $zoom, $b) {
                 $points = $query->get(['id', 'latitude', 'longitude']);
-
-                // Grid size in degrees roughly scales with zoom; tuned for Leaflet
-                $baseCellDeg = 1.5; // about ~160 km at equator
-                $scale = max(1, 12 - max(0, $zoom));
-                $cell = $baseCellDeg * $scale * 0.1; // smaller cells for higher zoom numbers
+                // Derive grid cell size from viewport so counts look natural
+                $latSpan = max(0.0001, (float) ($b['north'] - $b['south']));
+                $lngSpan = max(0.0001, (float) ($b['east'] - $b['west']));
+                // Target number of columns increases with zoom
+                $targetCols = max(12, min(64, $zoom * 6));
+                $cellLat = $latSpan / max(8, (int) round($targetCols * 0.6));
+                $cellLng = $lngSpan / $targetCols;
 
                 $grid = [];
                 foreach ($points as $p) {
-                    $gx = (int) floor((float) $p->longitude / $cell);
-                    $gy = (int) floor((float) $p->latitude / $cell);
+                    $gx = (int) floor((((float) $p->longitude) - (float) $b['west']) / $cellLng);
+                    $gy = (int) floor((((float) $p->latitude) - (float) $b['south']) / $cellLat);
                     $key = $gx.':'.$gy;
                     if (! isset($grid[$key])) {
                         $grid[$key] = [

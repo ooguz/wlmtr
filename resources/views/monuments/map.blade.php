@@ -396,7 +396,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Apply only when the user clicks 'Ara'
     if (searchBtn) {
-        searchBtn.addEventListener('click', applyFilters);
+        searchBtn.addEventListener('click', function() {
+            applyFilters();
+            // Refetch so backend returns non-cluster markers when filtered
+            scheduleFetchMarkers();
+        });
     }
 
     // Clear filters
@@ -412,7 +416,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (clearFiltersBtn) {
-        clearFiltersBtn.addEventListener('click', clearFilters);
+        clearFiltersBtn.addEventListener('click', function() {
+            clearFilters();
+            scheduleFetchMarkers();
+        });
     }
 
     // Initialize clear button visibility on load
@@ -485,6 +492,9 @@ document.addEventListener('DOMContentLoaded', function() {
         params.set('bounds[north]', ne.lat);
         params.set('bounds[east]', ne.lng);
         params.set('zoom', zoom);
+        if (isFiltered()) {
+            params.set('filtered', '1');
+        }
         return '/api/monuments/map-markers?' + params.toString();
     }
 
