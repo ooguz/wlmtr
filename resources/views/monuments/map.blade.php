@@ -717,14 +717,21 @@ document.addEventListener('DOMContentLoaded', function() {
             } else if (license) {
                 overlayText = license;
             }
-            let commonsLink = photo.commons_url ? `<a href="${photo.commons_url}" target="_blank" class="photo-overlay" style="position:absolute;bottom:0.4em;right:0.4em;pointer-events:auto;">${overlayText}</a>` : '';
+            let overlayHtml = '';
+            if (overlayText) {
+                if (photo.commons_url) {
+                    overlayHtml = `<a href="${photo.commons_url}" target="_blank" class="photo-overlay" style="position:absolute;bottom:0.4em;right:0.4em;pointer-events:auto;">${overlayText}</a>`;
+                } else {
+                    overlayHtml = `<div class="photo-overlay" style="position:absolute;bottom:0.4em;right:0.4em;pointer-events:none;">${overlayText}</div>`;
+                }
+            }
             const slide = document.createElement('div');
             slide.className = 'flex-shrink-0 w-full relative';
             slide.innerHTML = `
                 <img src="${photo.full_resolution_url}" 
                      alt="${photo.title || 'Monument photo'}" 
                      class="w-full h-48 object-cover cursor-pointer">
-                ${commonsLink}
+                ${overlayHtml}
             `;
             carouselTrack.appendChild(slide);
             
