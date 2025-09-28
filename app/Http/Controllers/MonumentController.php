@@ -107,7 +107,7 @@ class MonumentController extends Controller
         $b = $request->get('bounds');
 
         $query = Monument::query()
-            ->select(['id', 'wikidata_id', 'name_tr', 'name_en', 'latitude', 'longitude', 'province', 'has_photos', 'photo_count'])
+            ->select(['id', 'wikidata_id', 'name_tr', 'name_en', 'latitude', 'longitude', 'province', 'city', 'location_hierarchy_tr', 'has_photos', 'photo_count', 'properties'])
             ->whereNotNull('latitude')
             ->whereNotNull('longitude');
 
@@ -155,6 +155,12 @@ class MonumentController extends Controller
 
         $compute = function () use ($query) {
             return $query->get()->map(function ($m) {
+                // Light featured image from properties.image if available (fast, no relation load)
+                $featured = null;
+                $props = $m->properties;
+                if (is_array($props) && ! empty($props['image'])) {
+                    $featured = \App\Models\Monument::buildCommonsThumbnailUrl((string) $props['image'], 640);
+                }
                 return [
                     'id' => $m->id,
                     'wikidata_id' => $m->wikidata_id,
@@ -169,6 +175,7 @@ class MonumentController extends Controller
                     'location_hierarchy_tr' => $m->location_hierarchy_tr,
                     'has_photos' => (bool) $m->has_photos,
                     'photo_count' => (int) $m->photo_count,
+                    'featured_photo' => $featured,
                     'url' => "/monuments/{$m->id}",
                 ];
             });

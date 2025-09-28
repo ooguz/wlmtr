@@ -502,13 +502,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     // Click event with lazy detail fetch when needed
                     marker.on('click', function() {
-                        const hasDetails = !!(item.description || item.photo_count !== undefined || item.location_hierarchy_tr);
-                        if (hasDetails) {
-                            showMonumentInfo(item);
-                        } else if (item.id) {
+                        // Always fetch full details to ensure freshest data in panel
+                        if (item && item.id) {
                             fetch(`/api/monuments/${item.id}`)
                                 .then(r => r.json())
-                                .then(full => showMonumentInfo(full))
+                                .then(full => {
+                                    // Merge lightweight item with full details (keep featured_photo if already present)
+                                    const merged = Object.assign({}, item, full);
+                                    if (!merged.featured_photo && item.featured_photo) {
+                                        merged.featured_photo = item.featured_photo;
+                                    }
+                                    showMonumentInfo(merged);
+                                })
                                 .catch(() => showMonumentInfo(item));
                         } else {
                             showMonumentInfo(item);
