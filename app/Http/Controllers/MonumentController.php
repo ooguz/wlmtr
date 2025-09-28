@@ -99,136 +99,99 @@ class MonumentController extends Controller
     }
 
     /**
-     * API: Get monuments for map markers.
+     * API: Get map data. Returns server-side clusters for low zooms and thin markers for high zooms.
      */
     public function apiMapMarkers(Request $request): JsonResponse
     {
-        $query = Monument::with(['categories'])
-            ->select(['id', 'wikidata_id', 'name_tr', 'name_en', 'description_tr', 'description_en', 'latitude', 'longitude', 'has_photos', 'photo_count', 'province', 'city', 'district', 'location_hierarchy_tr', 'properties'])
+        $zoom = (int) $request->get('zoom', 0);
+
+        $query = Monument::query()
+            ->select(['id', 'wikidata_id', 'name_tr', 'name_en', 'latitude', 'longitude'])
             ->whereNotNull('latitude')
             ->whereNotNull('longitude');
 
-        // Apply filters
-        if ($request->filled('bounds')) {
-            $bounds = $request->get('bounds');
-            $query->whereBetween('latitude', [$bounds['south'], $bounds['north']])
-                ->whereBetween('longitude', [$bounds['west'], $bounds['east']]);
-        }
-
-        if ($request->filled('has_photos')) {
-            if ($request->get('has_photos') === '1') {
-                $query->withPhotos();
-            } else {
-                $query->withoutPhotos();
-            }
-        }
-
-        // Safety cap if bounds not provided
-        if (! $request->filled('bounds')) {
-            $query->orderByDesc('last_synced_at')->limit(2000);
-        }
-        // Build cache key if bounds are present (quantized to limit cardinality)
-        $cacheKey = null;
         if ($request->filled('bounds')) {
             $b = $request->get('bounds');
-            $zoom = (int) $request->get('zoom', 0);
+            $query->whereBetween('latitude', [$b['south'], $b['north']])
+                ->whereBetween('longitude', [$b['west'], $b['east']]);
+        }
+
+        // Lightweight cluster mode for low zooms
+        $clusterZoomThreshold = 11; // < 11 => cluster, >= 11 => raw markers
+
+        // Cache key scoped by zoom + quantized bounds to limit cardinality
+        $cacheKey = null;
+        if ($request->filled('bounds')) {
             $precision = $zoom >= 12 ? 3 : ($zoom >= 9 ? 2 : 1);
             $q = function ($v) use ($precision) {
                 return round((float) $v, $precision);
             };
-            $cacheKey = 'markers:'.implode(':', ['z'.$zoom, $q($b['south']), $q($b['west']), $q($b['north']), $q($b['east'])]);
+            $b = $request->get('bounds');
+            $cacheKey = 'map:'.implode(':', ['z'.$zoom, $q($b['south']), $q($b['west']), $q($b['north']), $q($b['east'])]);
         }
 
-        $compute = function () use ($query) {
-            $results = $query->get();
+        if ($zoom < $clusterZoomThreshold) {
+            $compute = function () use ($query, $zoom) {
+                $points = $query->get(['id', 'latitude', 'longitude']);
 
-            // Build a map of instance_of QIDs to categories to avoid N+1 queries
-            $instanceQids = [];
-            foreach ($results as $m) {
-                $props = $m->properties;
-                if (is_array($props) && ! empty($props['instance_of'])) {
-                    $instanceQids[] = (string) $props['instance_of'];
-                }
-            }
-            $instanceQids = array_values(array_unique(array_filter($instanceQids)));
+                // Grid size in degrees roughly scales with zoom; tuned for Leaflet
+                $baseCellDeg = 1.5; // about ~160 km at equator
+                $scale = max(1, 12 - max(0, $zoom));
+                $cell = $baseCellDeg * $scale * 0.1; // smaller cells for higher zoom numbers
 
-            $qidToCategory = [];
-            if (! empty($instanceQids)) {
-                $categoryModels = \App\Models\Category::query()->whereIn('wikidata_id', $instanceQids)->get(['id', 'wikidata_id', 'name_tr', 'name_en']);
-                foreach ($categoryModels as $cat) {
-                    $qidToCategory[$cat->wikidata_id] = $cat;
-                }
-            }
-
-            return $results->map(function ($monument) use ($qidToCategory) {
-                // Resolve a structured featured photo with attribution fields
-                $featured = null;
-                $fp = $monument->featured_photo;
-                if ($fp) {
-                    if (is_object($fp)) {
-                        // Eloquent Photo model or stdClass from accessor
-                        $featured = [
-                            'title' => $fp->title ?? $monument->primary_name,
-                            'photographer' => $fp->photographer ?? null,
-                            'license' => $fp->license_display_name ?? ($fp->license ?? null),
-                            'commons_url' => $fp->commons_url ?? null,
-                            'display_url' => $fp->display_url ?? $fp->full_resolution_url ?? null,
-                            'full_resolution_url' => $fp->full_resolution_url ?? $fp->display_url ?? null,
-                        ];
-                    } else {
-                        // String URL fallback
-                        $featured = [
-                            'title' => $monument->primary_name,
-                            'photographer' => null,
-                            'license' => null,
-                            'commons_url' => null,
-                            'display_url' => $fp,
-                            'full_resolution_url' => $fp,
+                $grid = [];
+                foreach ($points as $p) {
+                    $gx = (int) floor((float) $p->longitude / $cell);
+                    $gy = (int) floor((float) $p->latitude / $cell);
+                    $key = $gx.':'.$gy;
+                    if (! isset($grid[$key])) {
+                        $grid[$key] = [
+                            'type' => 'cluster',
+                            'count' => 0,
+                            'coordinates' => ['lat' => 0.0, 'lng' => 0.0],
                         ];
                     }
+                    $grid[$key]['count']++;
+                    $grid[$key]['coordinates']['lat'] += (float) $p->latitude;
+                    $grid[$key]['coordinates']['lng'] += (float) $p->longitude;
                 }
-                // Build categories array; fallback to instance_of mapping if relation empty
-                $categories = $monument->categories;
-                if ($categories->isEmpty()) {
-                    $props = $monument->properties;
-                    $instanceOf = is_array($props) ? ($props['instance_of'] ?? null) : null;
-                    if (is_string($instanceOf) && isset($qidToCategory[$instanceOf])) {
-                        $categories = collect([$qidToCategory[$instanceOf]]);
+
+                // Convert sums to centroids
+                foreach ($grid as $k => $bucket) {
+                    if ($bucket['count'] > 0) {
+                        $grid[$k]['coordinates']['lat'] = $bucket['coordinates']['lat'] / $bucket['count'];
+                        $grid[$k]['coordinates']['lng'] = $bucket['coordinates']['lng'] / $bucket['count'];
                     }
                 }
 
+                return array_values($grid);
+            };
+
+            $data = $cacheKey ? Cache::remember($cacheKey, 120, $compute) : $compute();
+
+            return response()->json($data)->header('Cache-Control', 'public, max-age=60');
+        }
+
+        // High zoom: return thin markers with only essentials; details fetched on demand
+        $computeMarkers = function () use ($query) {
+            return $query->limit(5000)->get()->map(function ($m) {
                 return [
-                    'id' => $monument->id,
-                    'wikidata_id' => $monument->wikidata_id,
-                    'name' => $monument->name_tr ?? $monument->name_en ?? 'Unnamed Monument',
-                    'description' => $monument->description_tr ?? $monument->description_en,
+                    'type' => 'marker',
+                    'id' => $m->id,
+                    'wikidata_id' => $m->wikidata_id,
+                    'name' => $m->name_tr ?? $m->name_en ?? 'Unnamed Monument',
                     'coordinates' => [
-                        'lat' => (float) $monument->latitude,
-                        'lng' => (float) $monument->longitude,
+                        'lat' => (float) $m->latitude,
+                        'lng' => (float) $m->longitude,
                     ],
-                    'has_photos' => (bool) $monument->has_photos,
-                    'photo_count' => (int) $monument->photo_count,
-                    'featured_photo' => $featured,
-                    'province' => $monument->province,
-                    'city' => $monument->city,
-                    'district' => $monument->district,
-                    'country' => $monument->country,
-                    'admin_area' => $monument->location_hierarchy_tr,
-                    'location_hierarchy_tr' => $monument->location_hierarchy_tr,
-                    'categories' => $categories->map(function ($category) {
-                        return [
-                            'id' => $category->id,
-                            'name' => $category->primary_name,
-                        ];
-                    }),
-                    'url' => "/monuments/{$monument->id}",
+                    'url' => "/monuments/{$m->id}",
                 ];
             });
         };
 
-        $monuments = $cacheKey ? Cache::remember($cacheKey, 60, $compute) : $compute();
+        $markers = $cacheKey ? Cache::remember($cacheKey, 60, $computeMarkers) : $computeMarkers();
 
-        return response()->json($monuments)->header('Cache-Control', 'public, max-age=60');
+        return response()->json($markers)->header('Cache-Control', 'public, max-age=60');
     }
 
     /**
