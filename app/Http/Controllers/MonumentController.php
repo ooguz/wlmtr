@@ -155,11 +155,30 @@ class MonumentController extends Controller
 
         $compute = function () use ($query) {
             return $query->get()->map(function ($m) {
-                // Light featured image from properties.image if available (fast, no relation load)
+                // Build structured featured photo including author/license when available
                 $featured = null;
-                $props = $m->properties;
-                if (is_array($props) && ! empty($props['image'])) {
-                    $featured = \App\Models\Monument::buildCommonsThumbnailUrl((string) $props['image'], 640);
+                $fp = $m->featured_photo;
+                if ($fp) {
+                    if (is_object($fp)) {
+                        $featured = [
+                            'title' => $fp->title ?? ($m->name_tr ?? $m->name_en),
+                            'photographer' => $fp->photographer ?? null,
+                            'license' => $fp->license_display_name ?? ($fp->license ?? null),
+                            'commons_url' => $fp->commons_url ?? null,
+                            'display_url' => $fp->display_url ?? $fp->full_resolution_url ?? null,
+                            'full_resolution_url' => $fp->full_resolution_url ?? $fp->display_url ?? null,
+                        ];
+                    } else {
+                        // String URL fallback just in case
+                        $featured = [
+                            'title' => $m->name_tr ?? $m->name_en,
+                            'photographer' => null,
+                            'license' => null,
+                            'commons_url' => null,
+                            'display_url' => (string) $fp,
+                            'full_resolution_url' => (string) $fp,
+                        ];
+                    }
                 }
                 return [
                     'id' => $m->id,
