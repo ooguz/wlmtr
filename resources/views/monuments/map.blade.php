@@ -333,56 +333,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Search and filter - runs only when 'Ara' is clicked
     function applyFilters() {
-        const searchTerm = searchInput.value.toLowerCase();
-        const province = provinceFilter.value;
-        const category = categoryFilter.value;
-        const showOnlyWithoutPhotos = photoToggle.checked;
-        
-        // Clear existing markers from cluster
+        // Server-side filtering; just re-add all markers we have
         markerCluster.clearLayers();
-        
-        const visibleMarkers = [];
-        
-        markers.forEach(marker => {
-            let show = true;
-            
-            // Debug: Log first few monuments to see their data structure
-            if (markers.indexOf(marker) < 3) {
-                console.log('Monument data:', marker.monument.name, 'Categories:', marker.monument.categories);
-            }
-            
-            if (searchTerm && !marker.monument.name.toLowerCase().includes(searchTerm) && 
-                !marker.monument.description?.toLowerCase().includes(searchTerm)) {
-                show = false;
-            }
-            
-            if (province && marker.monument.province !== province) {
-                show = false;
-            }
-            
-            if (category && !marker.monument.categories?.some(cat => Number(cat.id) === Number(category))) {
-                console.log('Filtering out:', marker.monument.name, 'Categories:', marker.monument.categories, 'Selected:', category);
-                show = false;
-            }
-            
-            // Use photo_count / has_photos when present; if unknown, do not filter it out
-            const hasPhotosVal = (marker.monument && (marker.monument.photo_count !== undefined || marker.monument.has_photos !== undefined))
-                ? (((marker.monument.photo_count ?? 0) > 0) || (marker.monument.has_photos === true))
-                : null;
-            if (showOnlyWithoutPhotos && hasPhotosVal === true) {
-                show = false;
-            }
-            
-            if (show) {
-                visibleMarkers.push(marker);
-            }
-        });
-        
-        // Add visible markers back to cluster
-        markerCluster.addLayers(visibleMarkers);
+        markerCluster.addLayers(markers);
 
         updateClearButtonVisibility();
-        // Close search panel on mobile to reveal map
         if (window.innerWidth < 768) {
             searchPanel.classList.add('hidden');
             searchPanel.classList.remove('mobile-open');
@@ -487,9 +442,12 @@ document.addEventListener('DOMContentLoaded', function() {
         params.set('bounds[north]', ne.lat);
         params.set('bounds[east]', ne.lng);
         params.set('zoom', zoom);
-        if (isFiltered()) {
-            params.set('filtered', '1');
-        }
+        // Send filters to backend (server-side filtering)
+        const q = (searchInput.value || '').trim();
+        if (q) params.set('q', q);
+        if (provinceFilter.value) params.set('province', provinceFilter.value);
+        if (categoryFilter.value) params.set('category', categoryFilter.value);
+        if (photoToggle.checked) params.set('has_photos', '0');
         return '/api/monuments/map-markers?' + params.toString();
     }
 
