@@ -53,34 +53,51 @@ class MonumentController extends Controller
         }
 
         if ($request->filled('category')) {
-            $categoryId = (int) $request->get('category');
-            // Prefer relational link if present
-            $query->where(function ($q) use ($categoryId) {
-                $q->whereHas('categories', function ($cq) use ($categoryId) {
-                    $cq->where('categories.id', $categoryId);
-                });
-            });
+            $categoryRaw = (string) $request->get('category');
+            $categoryId = ctype_digit($categoryRaw) ? (int) $categoryRaw : null;
+            $selectedCategory = $categoryId ? \App\Models\Category::find($categoryId) : null;
 
-            // Fallback: filter via properties JSON using category's Wikidata QID
-            $selectedCategory = \App\Models\Category::find($categoryId);
+            $connection = $query->getModel()->getConnection();
+            $driver = $connection->getDriverName();
+
+            $qid = null;
+            $labelLike = null;
             if ($selectedCategory && ! empty($selectedCategory->wikidata_id)) {
                 $qid = $selectedCategory->wikidata_id;
-                $connection = $query->getModel()->getConnection();
-                $driver = $connection->getDriverName();
-
-                $query->orWhere(function ($q2) use ($driver, $qid) {
-                    if ($driver === 'mysql') {
-                        // Match common classification fields or anywhere in properties
-                        $q2->where('properties->instance_of', $qid)
-                            ->orWhere('properties->physical_feature', $qid)
-                            ->orWhereRaw("JSON_SEARCH(properties, 'one', ?) IS NOT NULL", [$qid]);
-                    } else {
-                        // Generic fallback (SQLite / others): LIKE match
-                        $like = '%"'.$qid.'"%';
-                        $q2->where('properties', 'like', $like);
-                    }
-                });
+            } elseif (preg_match('/^Q\d+$/i', $categoryRaw)) {
+                $qid = strtoupper($categoryRaw);
+            } elseif (is_string($categoryRaw) && $categoryRaw !== '' && ! ctype_digit($categoryRaw)) {
+                $labelLike = '%'.strtolower($categoryRaw).'%';
             }
+
+            // Build filter: prefer relational when valid id; also match JSON instance_of / physical_feature or label
+            $query->where(function ($q) use ($categoryId, $selectedCategory, $driver, $qid, $labelLike) {
+                if ($selectedCategory && $categoryId) {
+                    $q->orWhereHas('categories', function ($cq) use ($categoryId) {
+                        $cq->where('categories.id', $categoryId);
+                    });
+                }
+                if ($qid) {
+                    $q->orWhere(function ($q2) use ($driver, $qid) {
+                        if ($driver === 'mysql') {
+                            $q2->where('properties->instance_of', $qid)
+                                ->orWhere('properties->physical_feature', $qid)
+                                ->orWhereRaw("JSON_SEARCH(properties, 'one', ?) IS NOT NULL", [$qid]);
+                        } else {
+                            $like = '%"'.$qid.'"%';
+                            $q2->where('properties', 'like', $like);
+                        }
+                    });
+                }
+                if ($labelLike) {
+                    if ($driver === 'mysql') {
+                        $q->orWhereRaw("LOWER(JSON_UNQUOTE(JSON_EXTRACT(properties, '$.instance_of_label_tr'))) LIKE ?", [$labelLike]);
+                    } else {
+                        $q->orWhere('properties', 'like', '%instance_of_label_tr%')
+                          ->orWhere('properties', 'like', '%'.trim($labelLike, '%').'%');
+                    }
+                }
+            });
         }
 
         // Distance-based filtering

@@ -973,6 +973,95 @@ SPARQL;
     }
 
     /**
+     * Build the optimized monuments query filtered to a specific list of QIDs.
+     *
+     * @param array<int,string> $qids
+     */
+    private function buildMonumentsQueryForQids(array $qids): string
+    {
+        $values = [];
+        foreach ($qids as $qid) {
+            $qid = strtoupper(trim($qid));
+            if (preg_match('/^Q\d+$/', $qid)) {
+                $values[] = 'wd:'.$qid;
+            }
+        }
+        if (empty($values)) {
+            // No valid QIDs, build a query that returns nothing
+            return 'SELECT ?place WHERE { FILTER(false) } LIMIT 0';
+        }
+
+        $valuesClause = 'VALUES ?place { '.implode(' ', $values).' }';
+
+        return '
+        SELECT 
+          ?place 
+          ?placeLabel 
+          ?placeAltLabel 
+          ?placeDescription 
+          ?placeDescriptionEn 
+          ?coordinates 
+          ?instanceOf 
+          ?instanceOfLabel 
+          ?commonsCat 
+          ?monumentId 
+          ?enwiki 
+          ?trwiki
+          ?image
+        WHERE {
+          '.$valuesClause.' .
+          ?place wdt:P17 wd:Q43; wdt:P11729 ?monumentId.
+
+          OPTIONAL { ?place wdt:P625 ?coordinates. }
+          OPTIONAL { ?place wdt:P373 ?commonsCat. }
+          OPTIONAL { ?place wdt:P18 ?image. }
+          OPTIONAL { ?place skos:altLabel ?placeAltLabel. FILTER(LANG(?placeAltLabel) = "tr") }
+          OPTIONAL { ?place schema:description ?placeDescription. FILTER(LANG(?placeDescription) = "tr") }
+          OPTIONAL { ?place schema:description ?placeDescriptionEn. FILTER(LANG(?placeDescriptionEn) = "en") }
+          OPTIONAL { ?place wdt:P31 ?instanceOf. }
+          OPTIONAL { ?enwiki schema:about ?place ; schema:isPartOf <https://en.wikipedia.org/>. }
+          OPTIONAL { ?trwiki schema:about ?place ; schema:isPartOf <https://tr.wikipedia.org/>. }
+          OPTIONAL { ?place rdfs:label ?placeLabel . FILTER(LANG(?placeLabel) = "tr") }
+          OPTIONAL { ?instanceOf rdfs:label ?instanceOfLabel . FILTER(LANG(?instanceOfLabel) = "tr") }
+        }
+        ';
+    }
+
+    /**
+     * Fetch monuments by a list of Wikidata QIDs.
+     *
+     * @param array<int,string> $qids
+     * @return array<int,array<string,mixed>>
+     */
+    public function fetchMonumentsByQids(array $qids): array
+    {
+        $query = $this->buildMonumentsQueryForQids($qids);
+
+        try {
+            $response = Http::withHeaders([
+                'User-Agent' => self::USER_AGENT,
+                'Accept' => 'application/sparql-results+json',
+                'Content-Type' => 'application/x-www-form-urlencoded',
+            ])->timeout(120)->retry(3, 3000)->asForm()->post(self::SPARQL_ENDPOINT, [
+                'query' => $query,
+                'format' => 'json',
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+
+                return $this->processMonumentsData($data);
+            }
+        } catch (\Throwable $e) {
+            Log::error('Failed to fetch monuments by QIDs', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return [];
+    }
+
+    /**
      * Process the SPARQL results for monuments with images.
      */
     private function processMonumentsWithImagesData(array $data): array
