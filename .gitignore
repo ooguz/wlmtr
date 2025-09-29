@@ -26,3 +26,26 @@ Thumbs.db
 **/caddy
 frankenphp
 frankenphp-worker.php
+
+wlmtr
+*.sqlite3
+*.sqlite
+*.sqlite-journal
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite-journal
+*.sqlite-shm
+*.sqlite-wal
+*.sql
+*.sql.gz
+*.sql.bz2
+*.sql.xz
+*.sql.tar
+*.sql.tar.gz
+*.sql.tar.bz2
+*.sql.tar.xz
+*.sql.tar.gz
+*.sql.tar.bz2
+*.sql.tar.xz
+
+wlmtr copy 2
