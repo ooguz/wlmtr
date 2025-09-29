@@ -370,9 +370,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             if (catQid) {
-                result = result.filter(m => (m.monument.type_qid || '').toUpperCase() === catQid);
+                result = result.filter(m => ((m.monument.category_qid || m.monument.type_qid || '').toUpperCase()) === catQid);
             } else if (catLabel) {
-                result = result.filter(m => (m.monument.type_label_tr || '').toLowerCase().includes(catLabel));
+                result = result.filter(m => ((m.monument.category_label_tr || m.monument.type_label_tr || '').toLowerCase().includes(catLabel)));
             }
         }
 
