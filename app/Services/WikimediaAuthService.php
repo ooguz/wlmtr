@@ -27,6 +27,8 @@ class WikimediaAuthService
             'oauth_token' => $this->getRequestToken(),
             'oauth_version' => '1.0',
             'state' => Str::random(40),
+            // Force Meta-Wiki login UI language to Turkish
+            'uselang' => 'tr',
         ];
 
         return self::COMMONS_OAUTH_URL.'?'.http_build_query($params);

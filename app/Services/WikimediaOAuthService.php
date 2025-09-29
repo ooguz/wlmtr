@@ -92,6 +92,9 @@ class WikimediaOAuthService extends AbstractProvider
             unset($fields['scope']);
         }
 
+        // Force Meta-Wiki login UI language to Turkish
+        $fields['uselang'] = 'tr';
+
         // Add PKCE (S256)
         $verifier = rtrim(strtr(base64_encode(random_bytes(64)), '+/', '-_'), '=');
         session()->put('wikimedia_pkce_verifier', $verifier);
