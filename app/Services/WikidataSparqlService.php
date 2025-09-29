@@ -69,6 +69,90 @@ class WikidataSparqlService
     }
 
     /**
+     * Return total count of monuments from SPARQL (authoritative count for the current query).
+     */
+    public function fetchMonumentsCount(): int
+    {
+        $query = '
+        SELECT (COUNT(DISTINCT ?place) AS ?count) WHERE {
+          ?place wdt:P17 wd:Q43; wdt:P11729 ?monumentId.
+          MINUS {
+            ?place wdt:P5816 ?v .
+            FILTER(?v NOT IN (
+              wd:Q56557159, wd:Q56557591, wd:Q55555088, wd:Q60539160,
+              wd:Q63065035, wd:Q75505084, wd:Q27132179, wd:Q63187954,
+              wd:Q111050392, wd:Q106379705, wd:Q117841865
+            ))
+          }
+        }
+        ';
+
+        try {
+            $response = Http::withHeaders([
+                'User-Agent' => self::USER_AGENT,
+                'Accept' => 'application/sparql-results+json',
+            ])->timeout(60)->get(self::SPARQL_ENDPOINT, [
+                'query' => $query,
+                'format' => 'json',
+            ]);
+            if (! $response->successful()) {
+                return 0;
+            }
+            $data = $response->json();
+            $val = $data['results']['bindings'][0]['count']['value'] ?? null;
+            return $val !== null ? (int) $val : 0;
+        } catch (\Throwable $e) {
+            return 0;
+        }
+    }
+
+    /**
+     * Fetch a page of unique monument QIDs to verify completeness.
+     * @return array<int,string> e.g., ['Q123', 'Q456']
+     */
+    public function fetchMonumentQids(int $offset = 0, int $limit = 1000): array
+    {
+        $query = '
+        SELECT DISTINCT ?place WHERE {
+          ?place wdt:P17 wd:Q43; wdt:P11729 ?monumentId.
+          MINUS {
+            ?place wdt:P5816 ?v .
+            FILTER(?v NOT IN (
+              wd:Q56557159, wd:Q56557591, wd:Q55555088, wd:Q60539160,
+              wd:Q63065035, wd:Q75505084, wd:Q27132179, wd:Q63187954,
+              wd:Q111050392, wd:Q106379705, wd:Q117841865
+            ))
+          }
+        }
+        LIMIT '.$limit.' OFFSET '.$offset.'
+        ';
+
+        try {
+            $response = Http::withHeaders([
+                'User-Agent' => self::USER_AGENT,
+                'Accept' => 'application/sparql-results+json',
+            ])->timeout(120)->get(self::SPARQL_ENDPOINT, [
+                'query' => $query,
+                'format' => 'json',
+            ]);
+            if (! $response->successful()) {
+                return [];
+            }
+            $data = $response->json();
+            $qids = [];
+            foreach ($data['results']['bindings'] ?? [] as $b) {
+                $uri = $b['place']['value'] ?? null;
+                if ($uri && preg_match('/Q\d+$/', $uri, $m)) {
+                    $qids[] = $m[0];
+                }
+            }
+            return $qids;
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
      * Build the optimized SPARQL query for Turkish monuments.
      * This comprehensive query fetches all necessary data in a single request.
      */

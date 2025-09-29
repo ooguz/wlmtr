@@ -229,7 +229,16 @@ class MonumentController extends Controller
                     ->header('Cache-Control', 'public, max-age='.$ttlSeconds)
                     ->header('X-Cache', 'HIT');
             }
-            // Miss: dispatch warm job and return fast, empty set
+            // Determine if filtered request; if filtered, compute on miss to avoid empty results
+            $isFiltered = $request->filled('q') || $request->filled('province') || $request->filled('category') || $request->has('has_photos');
+            if ($isFiltered) {
+                $markers = $compute();
+                Cache::put($cacheKey, $markers, now()->addMinutes(10));
+                return response()->json($markers)
+                    ->header('Cache-Control', 'public, max-age='.$ttlSeconds)
+                    ->header('X-Cache', 'MISS-COMPUTED');
+            }
+            // Unfiltered: dispatch warm job and return fast, empty set
             \App\Jobs\WarmTurkeyMarkersJob::dispatch();
             return response()->json([])
                 ->header('Cache-Control', 'no-cache')
