@@ -32,7 +32,14 @@ class WikimediaAuthController extends Controller
     public function redirectToWikimedia(): RedirectResponse
     {
         try {
-            return Socialite::driver('wikimedia')->redirect();
+            return Socialite::driver('wikimedia')
+                ->with([
+                    // Hint login UI language explicitly
+                    'uselang' => 'tr',
+                    // OIDC-compatible language hint; some IdPs respect this
+                    'ui_locales' => 'tr',
+                ])
+                ->redirect();
         } catch (\Exception $e) {
             Log::error('Wikimedia OAuth redirect error', [
                 'error' => $e->getMessage(),
