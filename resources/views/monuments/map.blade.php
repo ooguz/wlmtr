@@ -262,6 +262,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Store markers
     let markers = [];
+    let allMarkers = [];
+    let categoryIdToQid = {};
     let currentInfoWindow = null;
     
     // Mobile search panel toggle
@@ -336,9 +338,60 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Search and filter - runs only when 'Ara' is clicked
+    // Compute filtered markers from the full dataset
+    function getFilteredMarkers() {
+        let result = allMarkers.slice();
+
+        const q = (searchInput.value || '').trim().toLowerCase();
+        const provinceVal = (provinceFilter.value || '').trim();
+        const categoryRaw = (categoryFilter.value || '').trim();
+        const onlyWithoutPhotos = !!photoToggle.checked;
+
+        // Photos filter
+        if (onlyWithoutPhotos) {
+            result = result.filter(m => !m.monument.has_photos);
+        }
+
+        // Province filter (monument.province is a code/QID)
+        if (provinceVal) {
+            result = result.filter(m => (m.monument.province || '') === provinceVal);
+        }
+
+        // Category filter (supports id, QID, or label)
+        if (categoryRaw) {
+            let catQid = null;
+            let catLabel = null;
+            if (/^Q\d+$/i.test(categoryRaw)) {
+                catQid = categoryRaw.toUpperCase();
+            } else if (/^\d+$/.test(categoryRaw)) {
+                catQid = (categoryIdToQid[categoryRaw] || '').toUpperCase() || null;
+            } else {
+                catLabel = categoryRaw.toLowerCase();
+            }
+
+            if (catQid) {
+                result = result.filter(m => (m.monument.type_qid || '').toUpperCase() === catQid);
+            } else if (catLabel) {
+                result = result.filter(m => (m.monument.type_label_tr || '').toLowerCase().includes(catLabel));
+            }
+        }
+
+        // Search filter
+        if (q) {
+            result = result.filter(m => {
+                const name = (m.monument.name || '').toLowerCase();
+                const desc = (m.monument.description || '').toLowerCase();
+                const typeLabel = (m.monument.type_label_tr || '').toLowerCase();
+                return name.includes(q) || desc.includes(q) || typeLabel.includes(q);
+            });
+        }
+
+        return result;
+    }
+
+    // Apply current filters and render markers
     function applyFilters() {
-        // Server-side filtering; just re-add all markers we have
+        markers = getFilteredMarkers();
         markerCluster.clearLayers();
         markerCluster.addLayers(markers);
 
@@ -353,8 +406,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (searchBtn) {
         searchBtn.addEventListener('click', function() {
             applyFilters();
-            // Refetch so backend returns non-cluster markers when filtered
-            scheduleFetchMarkers();
         });
     }
 
@@ -373,7 +424,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (clearFiltersBtn) {
         clearFiltersBtn.addEventListener('click', function() {
             clearFilters();
-            scheduleFetchMarkers();
         });
     }
 
@@ -484,10 +534,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 return response.json();
             })
             .then(data => {
-                // Update markers collection
+                // Update markers collection (full dataset)
+                allMarkers = [];
                 markers = [];
-
-                // Clear existing cluster and rebuild
                 markerCluster.clearLayers();
 
                 (data || []).forEach(item => {
@@ -501,7 +550,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                     marker.type = 'marker';
                     marker.monument = item;
-                    markers.push(marker);
+                    allMarkers.push(marker);
                     
                     // Click event with lazy detail fetch when needed
                     marker.on('click', function() {
@@ -594,7 +643,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 const categoryFilter = document.getElementById('categoryFilter');
                 data.categories.forEach(category => {
                     const option = document.createElement('option');
-                    option.value = category.name;
+                    option.value = String(category.id);
+                    if (category.wikidata_id) {
+                        option.setAttribute('data-qid', category.wikidata_id);
+                        categoryIdToQid[String(category.id)] = category.wikidata_id;
+                    }
                     option.textContent = `${category.name} (${category.monument_count})`;
                     categoryFilter.appendChild(option);
                 });

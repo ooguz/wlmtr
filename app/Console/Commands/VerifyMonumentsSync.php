@@ -106,3 +106,4 @@ final class MonumentsCount
         return Monument::query()->whereNotNull('wikidata_id')->distinct('wikidata_id')->pluck('wikidata_id')->all();
     }
 }
+

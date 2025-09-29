@@ -243,6 +243,11 @@ class MonumentController extends Controller
                     }
                 }
 
+                // Minimal type/category metadata for client-side filtering
+                $props = is_array($m->properties) ? $m->properties : (is_string($m->properties) ? (json_decode($m->properties, true) ?: []) : []);
+                $typeQid = $props['instance_of'] ?? null;
+                $typeLabelTr = $props['instance_of_label_tr'] ?? null;
+
                 return [
                     'id' => $m->id,
                     'wikidata_id' => $m->wikidata_id,
@@ -257,6 +262,8 @@ class MonumentController extends Controller
                     'location_hierarchy_tr' => $m->location_hierarchy_tr,
                     'has_photos' => (bool) $m->has_photos,
                     'photo_count' => (int) $m->photo_count,
+                    'type_qid' => $typeQid,
+                    'type_label_tr' => $typeLabelTr,
                     'featured_photo' => $featured,
                     'url' => "/monuments/{$m->id}",
                 ];
@@ -443,6 +450,7 @@ class MonumentController extends Controller
                 return [
                     'id' => $category->id,
                     'name' => $category->primary_name,
+                    'wikidata_id' => $category->wikidata_id,
                     'monument_count' => $category->monument_count,
                 ];
             });

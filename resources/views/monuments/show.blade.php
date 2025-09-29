@@ -378,7 +378,7 @@
         const map = L.map('map').setView([{{ $monument->latitude }}, {{ $monument->longitude }}], 15);
         
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors | © <a href="https://leafletjs.com/" target="_blank">Leaflet</a> | <a href="https://commons.wikimedia.org/wiki/Category:Wiki_Loves_Monuments_Turkey" target="_blank">Wikimedia Commons</a> | Made with ❤️ by <a href="https://github.com/m3rcury" target="_blank">m3rcury</a>'
+            attribution: '© OpenStreetMap contributors | <a href="https://commons.wikimedia.org/wiki/Category:Wiki_Loves_Monuments_Turkey" target="_blank">Wikimedia Commons</a> | Made with ❤️ by <a href="https://github.com/ooguz" target="_blank">ooguz</a>'
         }).addTo(map);
         
         L.marker([{{ $monument->latitude }}, {{ $monument->longitude }}], {
