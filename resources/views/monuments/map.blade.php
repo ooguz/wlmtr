@@ -594,7 +594,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const categoryFilter = document.getElementById('categoryFilter');
                 data.categories.forEach(category => {
                     const option = document.createElement('option');
-                    option.value = category.id;
+                    option.value = category.name;
                     option.textContent = `${category.name} (${category.monument_count})`;
                     categoryFilter.appendChild(option);
                 });
