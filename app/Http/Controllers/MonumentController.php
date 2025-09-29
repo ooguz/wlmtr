@@ -53,10 +53,34 @@ class MonumentController extends Controller
         }
 
         if ($request->filled('category')) {
-            $categoryId = $request->get('category');
-            $query->whereHas('categories', function ($q) use ($categoryId) {
-                $q->where('categories.id', $categoryId);
+            $categoryId = (int) $request->get('category');
+            // Prefer relational link if present
+            $query->where(function ($q) use ($categoryId) {
+                $q->whereHas('categories', function ($cq) use ($categoryId) {
+                    $cq->where('categories.id', $categoryId);
+                });
             });
+
+            // Fallback: filter via properties JSON using category's Wikidata QID
+            $selectedCategory = \App\Models\Category::find($categoryId);
+            if ($selectedCategory && ! empty($selectedCategory->wikidata_id)) {
+                $qid = $selectedCategory->wikidata_id;
+                $connection = $query->getModel()->getConnection();
+                $driver = $connection->getDriverName();
+
+                $query->orWhere(function ($q2) use ($driver, $qid) {
+                    if ($driver === 'mysql') {
+                        // Match common classification fields or anywhere in properties
+                        $q2->where('properties->instance_of', $qid)
+                            ->orWhere('properties->physical_feature', $qid)
+                            ->orWhereRaw("JSON_SEARCH(properties, 'one', ?) IS NOT NULL", [$qid]);
+                    } else {
+                        // Generic fallback (SQLite / others): LIKE match
+                        $like = '%"'.$qid.'"%';
+                        $q2->where('properties', 'like', $like);
+                    }
+                });
+            }
         }
 
         // Distance-based filtering
