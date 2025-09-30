@@ -549,6 +549,7 @@ class MonumentController extends Controller
             'name' => $monument->primary_name,
             'description' => $monument->primary_description,
             'coordinates' => $monument->coordinates,
+            'commons_category' => $monument->commons_category,
             'address' => $monument->address,
             'city' => $monument->city,
             'province' => $monument->province,
