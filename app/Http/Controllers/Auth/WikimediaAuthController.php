@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\WikimediaAuthService;
+use App\Services\WikimediaCommonsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,7 +16,8 @@ use Laravel\Socialite\Facades\Socialite;
 class WikimediaAuthController extends Controller
 {
     public function __construct(
-        private WikimediaAuthService $wikimediaAuth
+        private WikimediaAuthService $wikimediaAuth,
+        private WikimediaCommonsService $commonsService
     ) {}
 
     /**
@@ -188,7 +190,16 @@ class WikimediaAuthController extends Controller
             abort(401);
         }
 
-        return view('auth.profile', compact('user'));
+        // Fetch Commons upload statistics and recent files if user is connected
+        $uploadCount = 0;
+        $recentUploads = [];
+
+        if ($user->isWikimediaConnected() && $user->wikimedia_username) {
+            $uploadCount = $this->commonsService->getUserUploadCount($user->wikimedia_username);
+            $recentUploads = $this->commonsService->getUserUploads($user->wikimedia_username, 12);
+        }
+
+        return view('auth.profile', compact('user', 'uploadCount', 'recentUploads'));
     }
 
     /**

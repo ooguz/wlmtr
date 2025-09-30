@@ -360,6 +360,7 @@
                     @endif
                     
                     <!-- Upload Wizard Link -->
+                    @auth
                     <a href="{{ $monument->upload_wizard_url }}" 
                        target="_blank"
                        class="flex items-center text-green-600 hover:text-green-800 font-medium">
@@ -368,6 +369,15 @@
                         </svg>
                         Fotoğraf Yükleme Sihirbazı
                     </a>
+                    @else
+                    <a href="{{ route('auth.login') }}" 
+                       class="flex items-center text-green-600 hover:text-green-800 font-medium">
+                        <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                        </svg>
+                        Fotoğraf yüklemek için giriş yapın
+                    </a>
+                    @endauth
                 </div>
             </div>
         </div>

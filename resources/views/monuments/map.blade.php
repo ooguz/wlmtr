@@ -219,12 +219,17 @@
         <div class="mt-3">
             <a id="monumentUploadWizardLink" 
                href="#" 
-               target="_blank" 
+               @guest
+               data-auth="false"
+               @else
+               target="_blank"
+               data-auth="true"
+               @endguest
                class="w-full bg-green-600 text-white text-center px-3 py-2 rounded-md hover:bg-green-700 text-sm font-medium flex items-center justify-center">
                 <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
                 </svg>
-                Fotoğraf Yükleme Sihirbazı
+                <span id="monumentUploadWizardText">Fotoğraf Yükleme Sihirbazı</span>
             </a>
         </div>
     </div>
@@ -729,9 +734,20 @@ document.addEventListener('DOMContentLoaded', function() {
         detailsLink.href = `/monuments/${monument.id}`;
         wikidataLink.href = `https://www.wikidata.org/wiki/${monument.wikidata_id}`;
         
-        // Build upload wizard URL
-        const uploadWizardUrl = buildUploadWizardUrl(monument);
-        uploadWizardLink.href = uploadWizardUrl;
+        // Build upload wizard URL or login link based on auth status
+        const isAuthenticated = uploadWizardLink.getAttribute('data-auth') === 'true';
+        const uploadWizardText = document.getElementById('monumentUploadWizardText');
+        
+        if (isAuthenticated) {
+            const uploadWizardUrl = buildUploadWizardUrl(monument);
+            uploadWizardLink.href = uploadWizardUrl;
+            uploadWizardText.textContent = 'Fotoğraf Yükleme Sihirbazı';
+            uploadWizardLink.setAttribute('target', '_blank');
+        } else {
+            uploadWizardLink.href = '{{ route("auth.login") }}';
+            uploadWizardText.textContent = 'Fotoğraf yüklemek için giriş yapın';
+            uploadWizardLink.removeAttribute('target');
+        }
         
         // Handle photo preview/carousel
         if (monument.photos && monument.photos.length > 0) {

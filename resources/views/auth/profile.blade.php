@@ -62,6 +62,7 @@
                         </div>
                     </div>
                     <div>
+                        
                         <h2 class="text-xl font-semibold text-gray-900">{{ $user->display_name }}</h2>
                         <p class="text-gray-600">{{ $user->email }}</p>
                         @if($user->isWikimediaConnected())
@@ -161,6 +162,46 @@
                             </div>
                         @endif
                     </div>
+                    
+                    <!-- Commons Uploads Section -->
+                    @if(!empty($recentUploads))
+                    <div class="border-t border-gray-200 pt-6 mt-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-medium text-gray-900">Son Yüklemeler</h3>
+                            <a href="https://commons.wikimedia.org/wiki/Special:ListFiles/{{ $user->wikimedia_username }}" 
+                               target="_blank"
+                               class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                                Yüklemelerim →
+                            </a>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            @foreach($recentUploads as $upload)
+                                <a href="{{ $upload['description_url'] ?? '#' }}" 
+                                   target="_blank"
+                                   class="group relative rounded-lg overflow-hidden bg-gray-100 hover:shadow-lg transition-shadow">
+                                    @if($upload['url'])
+                                        <img src="{{ $upload['url'] }}" 
+                                             alt="{{ $upload['name'] }}"
+                                             class="w-full h-32 object-cover group-hover:opacity-90 transition-opacity">
+                                    @else
+                                        <div class="w-full h-32 flex items-center justify-center bg-gray-200">
+                                            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                            </svg>
+                                        </div>
+                                    @endif
+                                    <div class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-2">
+                                        <p class="text-xs truncate">{{ Str::limit(str_replace('File:', '', $upload['name']), 30) }}</p>
+                                        @if($upload['timestamp'])
+                                            <p class="text-xs text-gray-300">{{ \Carbon\Carbon::parse($upload['timestamp'])->diffForHumans() }}</p>
+                                        @endif
+                                    </div>
+                                </a>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
                 @else
                     <!-- Not Connected -->
                     <div class="border-t border-gray-200 pt-6">
@@ -205,6 +246,11 @@
                         <div>
                             <dt class="text-sm font-medium text-gray-500">Commons Edit Sayısı</dt>
                             <dd class="mt-1 text-2xl font-semibold text-gray-900">{{ number_format($user->wikimedia_edit_count) }}</dd>
+                        </div>
+                        
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Commons Yükleme Sayısı</dt>
+                            <dd class="mt-1 text-2xl font-semibold text-gray-900">{{ number_format($uploadCount) }}</dd>
                         </div>
                     @endif
                 </dl>

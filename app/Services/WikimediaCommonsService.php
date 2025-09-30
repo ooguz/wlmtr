@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 class WikimediaCommonsService
 {
     private const COMMONS_API_ENDPOINT = 'https://commons.wikimedia.org/w/api.php';
+
     private const USER_AGENT = 'WikiLovesMonumentsTurkey/1.0 (https://wlmtr.org; mailto:info@wlmtr.org)';
 
     /**
@@ -18,17 +19,17 @@ class WikimediaCommonsService
     public function fetchPhotosForMonument(Monument $monument): array
     {
         $photos = [];
-        
+
         // Try to fetch photos using the monument's Wikidata ID
         if ($monument->wikidata_id) {
             $photos = array_merge($photos, $this->fetchPhotosByWikidataId($monument->wikidata_id));
         }
-        
+
         // Try to fetch photos using Commons category if available
         if ($monument->commons_url) {
             $photos = array_merge($photos, $this->fetchPhotosByCategory($monument->commons_url));
         }
-        
+
         return $photos;
     }
 
@@ -55,6 +56,7 @@ class WikimediaCommonsService
 
             if ($response->successful()) {
                 $data = $response->json();
+
                 return $this->processCommonsSearchResults($data);
             }
         } catch (\Exception $e) {
@@ -74,7 +76,7 @@ class WikimediaCommonsService
     {
         // Extract category name from URL
         $categoryName = $this->extractCategoryName($categoryUrl);
-        if (!$categoryName) {
+        if (! $categoryName) {
             return [];
         }
 
@@ -95,6 +97,7 @@ class WikimediaCommonsService
 
             if ($response->successful()) {
                 $data = $response->json();
+
                 return $this->processCommonsCategoryResults($data);
             }
         } catch (\Exception $e) {
@@ -113,8 +116,8 @@ class WikimediaCommonsService
     private function processCommonsSearchResults(array $data): array
     {
         $photos = [];
-        
-        if (!isset($data['query']['search'])) {
+
+        if (! isset($data['query']['search'])) {
             return $photos;
         }
 
@@ -127,7 +130,7 @@ class WikimediaCommonsService
         }
 
         // Now fetch image info for all files in one API call
-        if (!empty($files)) {
+        if (! empty($files)) {
             $photos = $this->fetchImageInfoForFiles($files);
         }
 
@@ -140,8 +143,8 @@ class WikimediaCommonsService
     private function processCommonsCategoryResults(array $data): array
     {
         $photos = [];
-        
-        if (!isset($data['query']['categorymembers'])) {
+
+        if (! isset($data['query']['categorymembers'])) {
             return $photos;
         }
 
@@ -154,7 +157,7 @@ class WikimediaCommonsService
         }
 
         // Now fetch image info for all files in one API call
-        if (!empty($files)) {
+        if (! empty($files)) {
             $photos = $this->fetchImageInfoForFiles($files);
         }
 
@@ -168,7 +171,7 @@ class WikimediaCommonsService
     {
         $photos = [];
         $titles = implode('|', $files);
-        
+
         $query = [
             'action' => 'query',
             'format' => 'json',
@@ -208,12 +211,12 @@ class WikimediaCommonsService
     private function processCommonsPhotoWithImageInfo(array $page): ?array
     {
         $title = $page['title'] ?? null;
-        if (!$title || !str_starts_with($title, 'File:')) {
+        if (! $title || ! str_starts_with($title, 'File:')) {
             return null;
         }
 
         $filename = str_replace('File:', '', $title);
-        
+
         // Get the actual file URL from the API response
         $originalUrl = null;
         if (isset($page['imageinfo'][0]['url'])) {
@@ -233,7 +236,7 @@ class WikimediaCommonsService
         if ($author) {
             $author = strip_tags($author);
         }
-        
+
         return [
             'commons_filename' => $filename,
             'commons_url' => "https://commons.wikimedia.org/wiki/{$title}",
@@ -255,12 +258,12 @@ class WikimediaCommonsService
     private function processCommonsPhoto(array $result): ?array
     {
         $title = $result['title'] ?? null;
-        if (!$title || !str_starts_with($title, 'File:')) {
+        if (! $title || ! str_starts_with($title, 'File:')) {
             return null;
         }
 
         $filename = str_replace('File:', '', $title);
-        
+
         // Get the actual file URL from the API response
         $originalUrl = null;
         if (isset($result['imageinfo'][0]['url'])) {
@@ -269,7 +272,7 @@ class WikimediaCommonsService
             // Fallback to constructed URL
             $originalUrl = $this->buildOriginalUrl($filename);
         }
-        
+
         return [
             'commons_filename' => $filename,
             'commons_url' => "https://commons.wikimedia.org/wiki/{$title}",
@@ -291,6 +294,7 @@ class WikimediaCommonsService
     {
         $filename = str_replace(' ', '_', $filename);
         $encodedFilename = rawurlencode($filename);
+
         return "https://commons.wikimedia.org/w/thumb.php?f={$encodedFilename}&width=300";
     }
 
@@ -301,20 +305,20 @@ class WikimediaCommonsService
     public function buildOriginalUrl(string $filename): string
     {
         // Use the Commons API to get the actual file URL
-        $apiUrl = "https://commons.wikimedia.org/w/api.php";
+        $apiUrl = 'https://commons.wikimedia.org/w/api.php';
         $params = [
             'action' => 'query',
             'titles' => "File:{$filename}",
             'prop' => 'imageinfo',
             'iiprop' => 'url',
-            'format' => 'json'
+            'format' => 'json',
         ];
-        
+
         try {
             $response = Http::withHeaders([
                 'User-Agent' => self::USER_AGENT,
             ])->get($apiUrl, $params);
-            
+
             if ($response->successful()) {
                 $data = $response->json();
                 if (isset($data['query']['pages'])) {
@@ -331,10 +335,11 @@ class WikimediaCommonsService
                 'error' => $e->getMessage(),
             ]);
         }
-        
+
         // Fallback to constructed URL (may not work for all files)
         $filename = str_replace(' ', '_', $filename);
         $encodedFilename = rawurlencode($filename);
+
         return "https://upload.wikimedia.org/wikipedia/commons/{$encodedFilename}";
     }
 
@@ -416,4 +421,104 @@ class WikimediaCommonsService
 
         return $savedCount;
     }
-} 
+
+    /**
+     * Fetch user's upload statistics and recent files from Commons.
+     */
+    public function getUserUploads(string $username, int $limit = 20): array
+    {
+        $query = [
+            'action' => 'query',
+            'format' => 'json',
+            'list' => 'allimages',
+            'aiuser' => $username,
+            'ailimit' => $limit,
+            'aiprop' => 'timestamp|url|size|mime|user|comment|extmetadata',
+            'aisort' => 'timestamp',
+            'aidir' => 'descending',
+        ];
+
+        try {
+            $response = Http::withHeaders([
+                'User-Agent' => self::USER_AGENT,
+            ])->get(self::COMMONS_API_ENDPOINT, $query);
+
+            if (! $response->successful()) {
+                Log::warning('Failed to fetch user uploads', [
+                    'username' => $username,
+                    'status' => $response->status(),
+                ]);
+
+                return [];
+            }
+
+            $data = $response->json();
+            $files = [];
+
+            if (isset($data['query']['allimages'])) {
+                foreach ($data['query']['allimages'] as $image) {
+                    $files[] = [
+                        'name' => $image['name'] ?? null,
+                        'url' => $image['url'] ?? null,
+                        'thumb_url' => $image['thumburl'] ?? null,
+                        'description_url' => $image['descriptionurl'] ?? null,
+                        'timestamp' => $image['timestamp'] ?? null,
+                        'size' => $image['size'] ?? 0,
+                        'width' => $image['width'] ?? 0,
+                        'height' => $image['height'] ?? 0,
+                        'mime' => $image['mime'] ?? null,
+                        'comment' => $image['comment'] ?? null,
+                    ];
+                }
+            }
+
+            return $files;
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch user uploads', [
+                'username' => $username,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [];
+        }
+    }
+
+    /**
+     * Get user's upload count from Commons.
+     */
+    public function getUserUploadCount(string $username): int
+    {
+        $query = [
+            'action' => 'query',
+            'format' => 'json',
+            'list' => 'users',
+            'ususers' => $username,
+            'usprop' => 'uploadcount',
+        ];
+
+        try {
+            $response = Http::withHeaders([
+                'User-Agent' => self::USER_AGENT,
+            ])->get(self::COMMONS_API_ENDPOINT, $query);
+
+            if (! $response->successful()) {
+                return 0;
+            }
+
+            $data = $response->json();
+
+            if (isset($data['query']['users'][0]['uploadcount'])) {
+                return (int) $data['query']['users'][0]['uploadcount'];
+            }
+
+            return 0;
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch user upload count', [
+                'username' => $username,
+                'error' => $e->getMessage(),
+            ]);
+
+            return 0;
+        }
+    }
+}
