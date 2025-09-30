@@ -190,16 +190,16 @@ class WikimediaAuthController extends Controller
             abort(401);
         }
 
-        // Fetch Commons upload statistics and recent files if user is connected
-        $uploadCount = 0;
+        // Fetch live Commons data if user is connected
+        $commonsUserInfo = null;
         $recentUploads = [];
 
         if ($user->isWikimediaConnected() && $user->wikimedia_username) {
-            $uploadCount = $this->commonsService->getUserUploadCount($user->wikimedia_username);
+            $commonsUserInfo = $this->commonsService->getUserInfo($user->wikimedia_username);
             $recentUploads = $this->commonsService->getUserUploads($user->wikimedia_username, 12);
         }
 
-        return view('auth.profile', compact('user', 'uploadCount', 'recentUploads'));
+        return view('auth.profile', compact('user', 'commonsUserInfo', 'recentUploads'));
     }
 
     /**

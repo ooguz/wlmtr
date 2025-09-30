@@ -64,7 +64,7 @@
                     <div>
                         
                         <h2 class="text-xl font-semibold text-gray-900">{{ $user->display_name }}</h2>
-                        <p class="text-gray-600">{{ $user->email }}</p>
+                        <p class="text-gray-600">{{ $user->wikimedia_registration_date->format('d.m.Y') }} tarihinden beri üye</p>
                         @if($user->isWikimediaConnected())
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                 Commons Bağlı
@@ -96,21 +96,35 @@
 
                             @if($user->wikimedia_real_name)
                                 <div>
-                                    <dt class="text-sm font-medium text-gray-500">Gerçek Ad</dt>
+                                    <dt class="text-sm font-medium text-gray-500">Kullanıcı Adı</dt>
                                     <dd class="mt-1 text-sm text-gray-900">{{ $user->wikimedia_real_name }}</dd>
                                 </div>
                             @endif
 
-                            <div>
-                                <dt class="text-sm font-medium text-gray-500">Commons Edit Sayısı</dt>
-                                <dd class="mt-1 text-sm text-gray-900">{{ number_format($user->wikimedia_edit_count) }}</dd>
-                            </div>
-
-                            @if($user->wikimedia_registration_date)
+                            @if($commonsUserInfo)
                                 <div>
-                                    <dt class="text-sm font-medium text-gray-500">Kayıt Tarihi</dt>
-                                    <dd class="mt-1 text-sm text-gray-900">{{ $user->wikimedia_registration_date->format('d.m.Y') }}</dd>
+                                    <dt class="text-sm font-medium text-gray-500">Commons Değişiklik Sayısı</dt>
+                                    <dd class="mt-1 text-sm text-gray-900">{{ number_format($commonsUserInfo['editcount']) }}</dd>
                                 </div>
+
+                                @if($commonsUserInfo['registration'])
+                                    <div>
+                                        <dt class="text-sm font-medium text-gray-500">Kayıt Tarihi</dt>
+                                        <dd class="mt-1 text-sm text-gray-900">{{ \Carbon\Carbon::parse($commonsUserInfo['registration'])->format('d.m.Y') }}</dd>
+                                    </div>
+                                @endif
+                            @else
+                                <div>
+                                    <dt class="text-sm font-medium text-gray-500">Commons Değişiklik Sayısı</dt>
+                                    <dd class="mt-1 text-sm text-gray-900">{{ number_format($user->wikimedia_edit_count) }}</dd>
+                                </div>
+
+                                @if($user->wikimedia_registration_date)
+                                    <div>
+                                        <dt class="text-sm font-medium text-gray-500">Kayıt Tarihi</dt>
+                                        <dd class="mt-1 text-sm text-gray-900">{{ $user->wikimedia_registration_date->format('d.m.Y') }}</dd>
+                                    </div>
+                                @endif
                             @endif
 
                             <div>
@@ -136,11 +150,16 @@
                             @endif
                         </dl>
 
-                        @if($user->wikimedia_groups)
+                        @php
+                            $groups = $commonsUserInfo['groups'] ?? $user->wikimedia_groups ?? [];
+                            $rights = $commonsUserInfo['rights'] ?? $user->wikimedia_rights ?? [];
+                        @endphp
+
+                        @if(!empty($groups))
                             <div class="mt-6">
                                 <dt class="text-sm font-medium text-gray-500 mb-2">Commons Grupları</dt>
                                 <div class="flex flex-wrap gap-2">
-                                    @foreach($user->wikimedia_groups as $group)
+                                    @foreach($groups as $group)
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                             {{ $group }}
                                         </span>
@@ -149,11 +168,11 @@
                             </div>
                         @endif
 
-                        @if($user->wikimedia_rights)
+                        @if(!empty($rights))
                             <div class="mt-6">
                                 <dt class="text-sm font-medium text-gray-500 mb-2">Commons Hakları</dt>
                                 <div class="flex flex-wrap gap-2">
-                                    @foreach($user->wikimedia_rights as $right)
+                                    @foreach($rights as $right)
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                                             {{ $right }}
                                         </span>
@@ -233,24 +252,28 @@
                 
                 <dl class="space-y-4">
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">Toplam Edit Sayısı</dt>
+                        <dt class="text-sm font-medium text-gray-500">Toplam Değişiklik Sayısı</dt>
                         <dd class="mt-1 text-2xl font-semibold text-gray-900">{{ number_format($user->total_edit_count) }}</dd>
                     </div>
                     
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">Platform Yükleme Sayısı</dt>
+                        <dt class="text-sm font-medium text-gray-500">Yükleme Sayısı</dt>
                         <dd class="mt-1 text-2xl font-semibold text-gray-900">{{ number_format($user->upload_count) }}</dd>
                     </div>
                     
                     @if($user->isWikimediaConnected())
                         <div>
-                            <dt class="text-sm font-medium text-gray-500">Commons Edit Sayısı</dt>
-                            <dd class="mt-1 text-2xl font-semibold text-gray-900">{{ number_format($user->wikimedia_edit_count) }}</dd>
+                            <dt class="text-sm font-medium text-gray-500">Commons Değişiklik Sayısı</dt>
+                            <dd class="mt-1 text-2xl font-semibold text-gray-900">
+                                {{ number_format($commonsUserInfo['editcount'] ?? $user->wikimedia_edit_count ?? 0) }}
+                            </dd>
                         </div>
                         
                         <div>
                             <dt class="text-sm font-medium text-gray-500">Commons Yükleme Sayısı</dt>
-                            <dd class="mt-1 text-2xl font-semibold text-gray-900">{{ number_format($uploadCount) }}</dd>
+                            <dd class="mt-1 text-2xl font-semibold text-gray-900">
+                                {{ number_format($commonsUserInfo['uploadcount'] ?? 0) }}
+                            </dd>
                         </div>
                     @endif
                 </dl>

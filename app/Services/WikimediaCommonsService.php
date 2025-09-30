@@ -521,4 +521,65 @@ class WikimediaCommonsService
             return 0;
         }
     }
+
+    /**
+     * Get comprehensive user information from Commons.
+     */
+    public function getUserInfo(string $username): ?array
+    {
+        $query = [
+            'action' => 'query',
+            'format' => 'json',
+            'list' => 'users',
+            'ususers' => $username,
+            'usprop' => 'blockinfo|editcount|registration|groups|rights|uploadcount',
+        ];
+
+        try {
+            $response = Http::withHeaders([
+                'User-Agent' => self::USER_AGENT,
+            ])->get(self::COMMONS_API_ENDPOINT, $query);
+
+            if (! $response->successful()) {
+                Log::warning('Failed to fetch user info', [
+                    'username' => $username,
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            $data = $response->json();
+
+            if (isset($data['query']['users'][0])) {
+                $userInfo = $data['query']['users'][0];
+
+                return [
+                    'userid' => $userInfo['userid'] ?? null,
+                    'name' => $userInfo['name'] ?? $username,
+                    'editcount' => $userInfo['editcount'] ?? 0,
+                    'registration' => $userInfo['registration'] ?? null,
+                    'groups' => $userInfo['groups'] ?? [],
+                    'rights' => $userInfo['rights'] ?? [],
+                    'uploadcount' => $userInfo['uploadcount'] ?? 0,
+                    'blocked' => isset($userInfo['blockid']),
+                    'blockinfo' => isset($userInfo['blockid']) ? [
+                        'blockid' => $userInfo['blockid'],
+                        'blockedby' => $userInfo['blockedby'] ?? null,
+                        'blockreason' => $userInfo['blockreason'] ?? null,
+                        'blockexpiry' => $userInfo['blockexpiry'] ?? null,
+                    ] : null,
+                ];
+            }
+
+            return null;
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch user info', [
+                'username' => $username,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
 }
