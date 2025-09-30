@@ -23,7 +23,7 @@ class MonumentController extends Controller
     /**
      * Display the monuments list view.
      */
-    public function list(Request $request): View
+    public function list(Request $request, \App\Services\WikimediaCommonsService $commonsService): View
     {
         $query = Monument::with(['photos', 'categories']);
 
@@ -119,6 +119,53 @@ class MonumentController extends Controller
 
         $monuments = $query->paginate(20);
 
+        // Compute effective photo counts by dynamically including Commons category photos
+        foreach ($monuments as $monument) {
+            $effectiveCount = (int) ($monument->photo_count ?? 0);
+            $effectiveHasPhotos = $monument->has_photos;
+
+            if (! $monument->hasWikidataImage()) {
+                $categoryUrl = $monument->commons_category_url ?? $monument->commons_url;
+                if (! empty($categoryUrl)) {
+                    try {
+                        $existing = $monument->photos->pluck('commons_filename')->filter()->map(fn ($v) => strtolower((string) $v))->all();
+                        $commonsPhotos = $commonsService->fetchPhotosByCategory($categoryUrl);
+                        $added = 0;
+                        foreach ($commonsPhotos as $cp) {
+                            $fname = strtolower((string) ($cp['commons_filename'] ?? ''));
+                            if ($fname === '' || in_array($fname, $existing, true)) {
+                                continue;
+                            }
+                            $added++;
+                        }
+                        if ($added > 0) {
+                            $effectiveCount += $added;
+                            $effectiveHasPhotos = $effectiveHasPhotos || ($effectiveCount > 0);
+                        }
+
+                        // If no featured photo at all, use first Commons category photo as card preview
+                        if (! $monument->featured_photo && ! empty($commonsPhotos)) {
+                            $first = $commonsPhotos[0];
+                            $monument->setAttribute('list_featured_photo', (object) [
+                                'title' => $first['title'] ?? ($monument->name_tr ?? $monument->name_en),
+                                'photographer' => $first['photographer'] ?? null,
+                                'license_display_name' => $first['license_shortname'] ?? ($first['license'] ?? null),
+                                'commons_url' => $first['commons_url'] ?? null,
+                                'display_url' => $first['thumbnail_url'] ?? ($first['original_url'] ?? ($first['commons_url'] ?? null)),
+                                'full_resolution_url' => $first['original_url'] ?? ($first['commons_url'] ?? null),
+                            ]);
+                        }
+                    } catch (\Throwable $e) {
+                        // Soft fail; leave effective values as-is
+                    }
+                }
+            }
+
+            // Expose as transient attributes for the view
+            $monument->setAttribute('effective_photo_count', $effectiveCount);
+            $monument->setAttribute('effective_has_photos', (bool) $effectiveHasPhotos);
+        }
+
         $categories = Category::active()->withMonuments()->get();
         $provinces = Monument::distinct()->pluck('province')->filter()->sort()->values();
 
@@ -128,9 +175,61 @@ class MonumentController extends Controller
     /**
      * Display monument details.
      */
-    public function show(Monument $monument, \App\Services\WikidataSparqlService $sparqlService): View
+    public function show(Monument $monument, \App\Services\WikidataSparqlService $sparqlService, \App\Services\WikimediaCommonsService $commonsService): View
     {
         $monument->load(['photos', 'categories']);
+
+        // Build display photos: start with stored photos
+        $displayPhotos = [];
+        foreach ($monument->photos as $p) {
+            $displayPhotos[] = [
+                'id' => $p->id,
+                'commons_filename' => $p->commons_filename,
+                'title' => $p->title,
+                'description' => $p->description,
+                'photographer' => $p->photographer,
+                'license_display_name' => $p->license_display_name,
+                'license' => $p->license_display_name,
+                'display_url' => $p->display_url,
+                'full_resolution_url' => $p->full_resolution_url,
+                'commons_url' => $p->commons_url,
+            ];
+        }
+
+        // If Commons category exists, fetch and append category photos (dedupe by filename)
+        $addedFromCommons = 0;
+        $existingFilenames = collect($displayPhotos)->pluck('commons_filename')->filter()->map(fn ($v) => strtolower((string) $v))->all();
+        if (! empty($monument->commons_url)) {
+            try {
+                $commonsPhotos = $commonsService->fetchPhotosByCategory($monument->commons_url);
+                foreach ($commonsPhotos as $cp) {
+                    $fname = strtolower((string) ($cp['commons_filename'] ?? ''));
+                    if ($fname !== '' && in_array($fname, $existingFilenames, true)) {
+                        continue;
+                    }
+                    $displayPhotos[] = [
+                        'id' => null,
+                        'commons_filename' => $cp['commons_filename'] ?? null,
+                        'title' => $cp['title'] ?? $monument->primary_name,
+                        'description' => $cp['description'] ?? null,
+                        'photographer' => $cp['photographer'] ?? null,
+                        'license_display_name' => $cp['license_shortname'] ?? ($cp['license'] ?? null),
+                        'license' => $cp['license_shortname'] ?? ($cp['license'] ?? null),
+                        'display_url' => $cp['thumbnail_url'] ?? $cp['original_url'] ?? ($cp['commons_url'] ?? null),
+                        'full_resolution_url' => $cp['original_url'] ?? ($cp['commons_url'] ?? null),
+                        'commons_url' => $cp['commons_url'] ?? null,
+                    ];
+                    $addedFromCommons++;
+                    if ($fname !== '') {
+                        $existingFilenames[] = $fname;
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Soft fail; continue without Commons category
+            }
+        }
+
+        $effectivePhotoCount = (int) $monument->photo_count + (int) $addedFromCommons;
 
         // Ensure location hierarchy is available for the detail page
         if (empty($monument->location_hierarchy_tr) && ! empty($monument->wikidata_id)) {
@@ -145,7 +244,11 @@ class MonumentController extends Controller
             }
         }
 
-        return view('monuments.show', compact('monument'));
+        return view('monuments.show', [
+            'monument' => $monument,
+            'displayPhotos' => $displayPhotos,
+            'effectivePhotoCount' => $effectivePhotoCount,
+        ]);
     }
 
     /**
@@ -374,9 +477,64 @@ class MonumentController extends Controller
     /**
      * API: Get monument details.
      */
-    public function apiShow(Monument $monument): JsonResponse
+    public function apiShow(Monument $monument, \App\Services\WikimediaCommonsService $commonsService): JsonResponse
     {
         $monument->load(['photos', 'categories']);
+
+        // Prepare combined photos including Commons category if available
+        $photosOut = [];
+        foreach ($monument->photos as $photo) {
+            $photosOut[] = [
+                'id' => $photo->id,
+                'commons_filename' => $photo->commons_filename,
+                'title' => $photo->title,
+                'description' => $photo->description,
+                'photographer' => $photo->photographer,
+                'license' => $photo->license_display_name,
+                'date_taken' => $photo->formatted_date_taken,
+                'display_url' => $photo->display_url,
+                'full_resolution_url' => $photo->full_resolution_url,
+                'is_featured' => $photo->is_featured,
+                'is_uploaded_via_app' => $photo->is_uploaded_via_app,
+                'commons_url' => $photo->commons_url,
+            ];
+        }
+
+        $addedFromCommons = 0;
+        $hasWikidataImage = $monument->hasWikidataImage();
+        $existingFilenames = collect($photosOut)->pluck('commons_filename')->filter()->map(fn ($v) => strtolower((string) $v))->all();
+        // Only enrich with Commons category photos for the map panel if Wikidata image is absent
+        if (! $hasWikidataImage && ! empty($monument->commons_url)) {
+            try {
+                $commonsPhotos = $commonsService->fetchPhotosByCategory($monument->commons_url);
+                foreach ($commonsPhotos as $cp) {
+                    $fname = strtolower((string) ($cp['commons_filename'] ?? ''));
+                    if ($fname !== '' && in_array($fname, $existingFilenames, true)) {
+                        continue;
+                    }
+                    $photosOut[] = [
+                        'id' => null,
+                        'commons_filename' => $cp['commons_filename'] ?? null,
+                        'title' => $cp['title'] ?? $monument->primary_name,
+                        'description' => $cp['description'] ?? null,
+                        'photographer' => $cp['photographer'] ?? null,
+                        'license' => $cp['license_shortname'] ?? ($cp['license'] ?? null),
+                        'date_taken' => null,
+                        'display_url' => $cp['thumbnail_url'] ?? $cp['original_url'] ?? ($cp['commons_url'] ?? null),
+                        'full_resolution_url' => $cp['original_url'] ?? ($cp['commons_url'] ?? null),
+                        'is_featured' => false,
+                        'is_uploaded_via_app' => false,
+                        'commons_url' => $cp['commons_url'] ?? null,
+                    ];
+                    $addedFromCommons++;
+                    if ($fname !== '') {
+                        $existingFilenames[] = $fname;
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Ignore Commons fetch errors in API response
+            }
+        }
 
         // Optional: include raw Wikidata entity when requested
         $raw = request()->boolean('raw');
@@ -404,23 +562,9 @@ class MonumentController extends Controller
             'wikidata_url' => $monument->wikidata_url,
             'wikipedia_url' => $monument->wikipedia_url,
             'commons_url' => $monument->commons_url,
-            'has_photos' => $monument->has_photos,
-            'photo_count' => $monument->photo_count,
-            'photos' => $monument->photos->map(function ($photo) {
-                return [
-                    'id' => $photo->id,
-                    'commons_filename' => $photo->commons_filename,
-                    'title' => $photo->title,
-                    'description' => $photo->description,
-                    'photographer' => $photo->photographer,
-                    'license' => $photo->license_display_name,
-                    'date_taken' => $photo->formatted_date_taken,
-                    'display_url' => $photo->display_url,
-                    'full_resolution_url' => $photo->full_resolution_url,
-                    'is_featured' => $photo->is_featured,
-                    'is_uploaded_via_app' => $photo->is_uploaded_via_app,
-                ];
-            }),
+            'has_photos' => $monument->has_photos || (!$hasWikidataImage && $addedFromCommons > 0),
+            'photo_count' => (int) $monument->photo_count + (!$hasWikidataImage ? (int) $addedFromCommons : 0),
+            'photos' => $photosOut,
             'categories' => $monument->categories->map(function ($category) {
                 return [
                     'id' => $category->id,

@@ -27,26 +27,27 @@
     </nav>
     
     <!-- Photo Carousel -->
-    @if($monument->photos->count() > 0)
+    @if(!empty($displayPhotos))
         <div class="mb-8">
             <div class="relative">
                 <div id="detailCarousel" class="overflow-hidden rounded-lg">
                     <div id="detailCarouselTrack" class="flex transition-transform duration-300 ease-in-out">
-                        @foreach($monument->photos as $photo)
+                        @foreach($displayPhotos as $photo)
                             <div class="flex-shrink-0 w-full">
-                                <img src="{{ $photo->full_resolution_url }}" 
-                                     alt="{{ $photo->title ?? $monument->primary_name }}"
+                                <img src="{{ $photo['full_resolution_url'] }}" 
+                                     alt="{{ $photo['title'] ?? $monument->primary_name }}"
                                      class="w-full h-96 object-cover cursor-pointer"
-                                     onclick="openDetailPhotoModal('{{ $photo->full_resolution_url }}', '{{ $photo->commons_url }}', '{{ $photo->title ?? '' }}', '{{ $photo->photographer ?? '' }}', '{{ $photo->license_display_name ?? '' }}')">
+                                     onclick="openDetailPhotoModal('{{ $photo['full_resolution_url'] }}', '{{ $photo['commons_url'] ?? '' }}', '{{ $photo['title'] ?? '' }}', '{{ $photo['photographer'] ?? '' }}', '{{ $photo['license'] ?? ($photo['license_display_name'] ?? '') }}')">
                                 
                                 <!-- Photo Info Overlay -->
                                 <div class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white p-4">
-                                    <div class="font-semibold">{{ $photo->title ?? 'Untitled' }}</div>
-                                    @if($photo->photographer)
-                                        <div class="text-sm text-gray-300">by {{ $photo->photographer }}</div>
+                                    <div class="font-semibold">{{ $photo['title'] ?? 'Untitled' }}</div>
+                                    @if(!empty($photo['photographer']))
+                                        <div class="text-sm text-gray-300">by {{ $photo['photographer'] }}</div>
                                     @endif
-                                    @if($photo->license_display_name)
-                                        <div class="text-xs text-gray-300">{{ $photo->license_display_name }}</div>
+                                    @php $licenseText = $photo['license'] ?? ($photo['license_display_name'] ?? null); @endphp
+                                    @if(!empty($licenseText))
+                                        <div class="text-xs text-gray-300">{{ $licenseText }}</div>
                                     @endif
                                 </div>
                             </div>
@@ -55,7 +56,7 @@
                 </div>
                 
                 <!-- Carousel Navigation -->
-                @if($monument->photos->count() > 1)
+                @if(count($displayPhotos) > 1)
                     <button id="prevDetail" class="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white rounded-full p-2 hover:bg-opacity-75">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
@@ -69,9 +70,9 @@
                 @endif
                 
                 <!-- Carousel Indicators -->
-                @if($monument->photos->count() > 1)
+                @if(count($displayPhotos) > 1)
                     <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
-                    @foreach($monument->photos as $index => $photo)
+                    @foreach($displayPhotos as $index => $p)
                             <button class="w-2 h-2 rounded-full {{ $index === 0 ? 'bg-white' : 'bg-white bg-opacity-50' }} detail-indicator" data-index="{{ $index }}"></button>
                     @endforeach
                 </div>
@@ -116,8 +117,8 @@
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                     </svg>
-                    <span>{{ $monument->photo_count }} fotoğraf</span>
-                    @if($monument->photos->count() > 0)
+                    <span>{{ $effectivePhotoCount }} fotoğraf</span>
+                    @if(count($displayPhotos) > 0)
                         <span class="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             Fotoğraflı
                         </span>
@@ -151,22 +152,22 @@
             @endif
             
             <!-- Photos -->
-            @if($monument->photos->count() > 0)
+            @if(!empty($displayPhotos))
                 <div class="mb-8">
                     <h2 class="text-xl font-semibold text-gray-900 mb-4">Fotoğraflar</h2>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        @foreach($monument->photos as $photo)
+                        @foreach($displayPhotos as $photo)
                             <div class="bg-white rounded-lg shadow-md overflow-hidden">
                                 <div class="relative">
-                                <img src="{{ $photo->display_url }}" 
-                                     alt="{{ $photo->title ?? $monument->primary_name }}"
+                                <img src="{{ $photo['display_url'] ?? $photo['full_resolution_url'] }}" 
+                                     alt="{{ $photo['title'] ?? $monument->primary_name }}"
                                      class="w-full h-48 object-cover">
                                     <!-- Photo Info Overlay -->
                                     <div class="absolute bottom-2 right-2 bg-black bg-opacity-70 text-white text-xs rounded px-2 py-1 flex items-center space-x-2">
                                         @php
-                                            $author = $photo->photographer;
-                                            $license = $photo->license_display_name;
-                                            $isPublicDomain = Str::contains(strtolower($license), 'public domain') || strtolower($license) === 'cc0';
+                                            $author = $photo['photographer'] ?? null;
+                                            $license = $photo['license'] ?? ($photo['license_display_name'] ?? null);
+                                            $isPublicDomain = $license && (Str::contains(strtolower($license), 'public domain') || strtolower($license) === 'cc0');
                                         @endphp
                                         @if($isPublicDomain)
                                             <span>Public domain</span>
@@ -177,24 +178,26 @@
                                         @elseif($license)
                                             <span>{{ $license }}</span>
                                         @endif
-                                        <a href="{{ $photo->commons_url }}" target="_blank" title="Wikimedia Commons" class="ml-1">
-                                            <svg class="w-4 h-4 inline" fill="currentColor" viewBox="0 0 20 20"><path d="M12.293 2.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-8.5 8.5a1 1 0 01-.325.217l-4 1.5a1 1 0 01-1.263-1.263l1.5-4a1 1 0 01.217-.325l8.5-8.5zM15 7l-2-2-8.293 8.293-1.086 2.9 2.9-1.086L15 7z"></path></svg>
+                                        @if(!empty($photo['commons_url']))
+                                        <a href="{{ $photo['commons_url'] }}" target="_blank" title="Wikimedia Commons" class="ml-1">
+                                        <svg fill="currentColor" class="h-4 inline" viewBox="0 0 24 24" role="img" xmlns="http://www.w3.org/2000/svg"><title>Wikimedia Commons icon</title><path d="M9.048 15.203a2.952 2.952 0 1 1 5.904 0 2.952 2.952 0 0 1-5.904 0zm11.749.064v-.388h-.006a8.726 8.726 0 0 0-.639-2.985 8.745 8.745 0 0 0-1.706-2.677l.004-.004-.186-.185-.044-.045-.026-.026-.204-.204-.006.007c-.848-.756-1.775-1.129-2.603-1.461-1.294-.519-2.138-.857-2.534-2.467.443.033.839.174 1.13.481C15.571 6.996 11.321 0 11.321 0s-1.063 3.985-2.362 5.461c-.654.744.22.273 1.453-.161.279 1.19.77 2.119 1.49 2.821.791.771 1.729 1.148 2.556 1.48.672.27 1.265.508 1.767.916l-.593.594-.668-.668-.668 2.463 2.463-.668-.668-.668.6-.599a6.285 6.285 0 0 1 1.614 3.906h-.844v-.944l-2.214 1.27 2.214 1.269v-.944h.844a6.283 6.283 0 0 1-1.614 3.906l-.6-.599.668-.668-2.463-.668.668 2.463.668-.668.6.6a6.263 6.263 0 0 1-3.907 1.618v-.848h.945L12 18.45l-1.27 2.214h.944v.848a6.266 6.266 0 0 1-3.906-1.618l.599-.6.668.668.668-2.463-2.463.668.668.668-.6.599a6.29 6.29 0 0 1-1.615-3.906h.844v.944l2.214-1.269-2.214-1.27v.944h-.843a6.292 6.292 0 0 1 1.615-3.906l.6.599-.668.668 2.463.668-.668-2.463-.668.668-2.359-2.358-.23.229-.044.045-.185.185.004.004a8.749 8.749 0 0 0-2.345 5.662h-.006v.649h.006a8.749 8.749 0 0 0 2.345 5.662l-.004.004.185.185.045.045.045.045.185.185.004-.004a8.73 8.73 0 0 0 2.677 1.707 8.75 8.75 0 0 0 2.985.639V24h.649v-.006a8.75 8.75 0 0 0 2.985-.639 8.717 8.717 0 0 0 2.677-1.707l.004.004.187-.187.044-.043.043-.044.187-.186-.004-.004a8.733 8.733 0 0 0 1.706-2.677 8.726 8.726 0 0 0 .639-2.985h.006v-.259z"/></svg>
                                         </a>
+                                        @endif
                                     </div>
                                 </div>
                                 <div class="p-4">
-                                    @if($photo->title)
-                                        <h3 class="font-semibold text-gray-900 mb-2">{{ $photo->title }}</h3>
+                                    @if(!empty($photo['title']))
+                                        <h3 class="font-semibold text-gray-900 mb-2">{{ $photo['title'] }}</h3>
                                     @endif
-                                    @if($photo->photographer)
-                                        <p class="text-sm text-gray-600 mb-2">Fotoğrafçı: {{ $photo->photographer }}</p>
+                                    @if(!empty($photo['photographer']))
+                                        <p class="text-sm text-gray-600 mb-2">Fotoğrafçı: {{ $photo['photographer'] }}</p>
                                     @endif
-                                    @if($photo->formatted_date_taken)
-                                        <p class="text-sm text-gray-500 mb-2">{{ $photo->formatted_date_taken }}</p>
+                                    @if(!empty($photo['date_taken']))
+                                        <p class="text-sm text-gray-500 mb-2">{{ $photo['date_taken'] }}</p>
                                     @endif
                                     <div class="flex justify-between items-center">
-                                        <span class="text-xs text-gray-500">{{ $photo->license_display_name }}</span>
-                                        <a href="{{ $photo->full_resolution_url }}" 
+                                        <span class="text-xs text-gray-500">{{ $photo['license'] ?? ($photo['license_display_name'] ?? '') }}</span>
+                                        <a href="{{ $photo['full_resolution_url'] ?? ($photo['display_url'] ?? '#') }}" 
                                            target="_blank"
                                            class="text-blue-600 hover:text-blue-800 text-sm">
                                             Tam boyut
@@ -402,7 +405,7 @@
         const prevBtn = document.getElementById('prevDetail');
         const nextBtn = document.getElementById('nextDetail');
         let currentIndex = 0;
-        const totalSlides = {{ $monument->photos->count() }};
+        const totalSlides = {{ !empty($displayPhotos) ? count($displayPhotos) : 0 }};
 
         function updateCarousel() {
             carousel.style.transform = `translateX(-${currentIndex * 100}%)`;

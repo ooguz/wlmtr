@@ -70,7 +70,7 @@ class WikimediaCommonsService
     /**
      * Fetch photos using Commons category.
      */
-    private function fetchPhotosByCategory(string $categoryUrl): array
+    public function fetchPhotosByCategory(string $categoryUrl): array
     {
         // Extract category name from URL
         $categoryName = $this->extractCategoryName($categoryUrl);

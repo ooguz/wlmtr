@@ -59,12 +59,16 @@
                             </a>
                         </div>
                         <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        <a href="https://commons.wikimedia.org/wiki/Commons:Wiki_Loves_Monuments_2025_in_Turkey/tr" target="_blank" 
+                               class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                Hakkında
+                            </a>
                             <a href="{{ route('home') }}" 
                                class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                                 Harita
                             </a>
                             <a href="{{ route('monuments.list') }}" 
-                               class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                               class="{{ route('monuments.list') ? 'border-blue-300' : 'border-transparent' }} text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium" >
                                 Liste
                             </a>
                         </div>
@@ -194,7 +198,7 @@
         <footer class="bg-white border-t border-gray-200 mt-8">
             <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
                 <div class="text-center text-sm text-gray-500">
-                    <p>Wiki Loves Monuments Turkey - Türkiye'deki anıtları keşfedin ve fotoğraflayın</p>
+                    <p>Viki Anıtları Seviyor Türkiye - Türkiye'deki anıtları keşfedin ve fotoğraflayın</p>
                     <p class="mt-2">
                         <a href="https://commons.wikimedia.org/wiki/Category:Wiki_Loves_Monuments_Turkey" 
                            class="text-blue-600 hover:text-blue-800" target="_blank">

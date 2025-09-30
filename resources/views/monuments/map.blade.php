@@ -106,9 +106,18 @@
 
     <!-- Floating Nav Cards - Positioned to avoid zoom controls -->
     <div class="floating-nav-cards absolute top-4 right-4 z-30 flex flex-col gap-3">
+        <a href="https://commons.wikimedia.org/wiki/Commons:Wiki_Loves_Monuments_2025_in_Turkey/tr" target="_blank" class="bg-white/90 backdrop-blur rounded-xl shadow-md px-4 py-3 hover:bg-white">
+            <div class="flex items-center gap-2">
+                <span><img src="/wlm-logo.svg" alt="WLM Turkey" class="h-4"></span>
+                <div>
+                    <div class="text-sm font-semibold">Viki Anıtları Seviyor</div>
+                    <div class="text-xs text-gray-500">Yarışma hakkında</div>
+                </div>
+            </div>
+        </a>
         <a href="{{ route('monuments.list') }}" class="bg-white/90 backdrop-blur rounded-xl shadow-md px-4 py-3 hover:bg-white">
             <div class="flex items-center gap-2">
-                <span>📃</span>
+                <span>🏛️</span>
                 <div>
                     <div class="text-sm font-semibold">Liste</div>
                     <div class="text-xs text-gray-500">Tüm anıtları görüntüle</div>
@@ -128,7 +137,7 @@
         @else
         <a href="{{ route('auth.login') }}" class="bg-white/90 backdrop-blur rounded-xl shadow-md px-4 py-3 hover:bg-white">
             <div class="flex items-center gap-2">
-                <span>↪️</span>
+                <span>➜]</span>
                 <div>
                     <div class="text-sm font-semibold">Giriş Yap</div>
                     <div class="text-xs text-gray-500">Wikimedia hesabınız ile</div>
@@ -254,7 +263,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Add OpenStreetMap tiles
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors | © <a href="https://leafletjs.com/" target="_blank">Leaflet</a> | <a href="https://commons.wikimedia.org/wiki/Category:Wiki_Loves_Monuments_Turkey" target="_blank">Wikimedia Commons</a> | Made with ❤️ by <a href="https://github.com/ooguz" target="_blank">ooguz</a>'
+        attribution: '© OpenStreetMap contributors | <a href="https://commons.wikimedia.org/wiki/Category:Wiki_Loves_Monuments_Turkey" target="_blank">Wikimedia Commons</a> | Made with ❤️ by <a href="https://github.com/ooguz" target="_blank">ooguz</a>'
     }).addTo(map);
     
     // Clustering

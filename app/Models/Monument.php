@@ -81,6 +81,28 @@ class Monument extends Model
     }
 
     /**
+     * Determine if Wikidata provides a primary image (P18) for this monument.
+     */
+    public function hasWikidataImage(): bool
+    {
+        $props = $this->properties;
+        if (is_string($props)) {
+            $decoded = json_decode($props, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $props = $decoded;
+            } else {
+                $props = null;
+            }
+        }
+
+        if (is_array($props) && ! empty($props['image'])) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Check if monument has coordinates.
      */
     public function hasCoordinates(): bool

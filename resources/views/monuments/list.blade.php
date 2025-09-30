@@ -103,15 +103,16 @@
             <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                 <!-- Image -->
                 <div class="aspect-w-16 aspect-h-9 bg-gray-200 relative">
-                    @if($monument->featured_photo)
-                        <img src="{{ $monument->featured_photo->display_url }}" 
+                    @php $cardPhoto = $monument->featured_photo ?? ($monument->list_featured_photo ?? null); @endphp
+                    @if($cardPhoto)
+                        <img src="{{ $cardPhoto->display_url }}" 
                              alt="{{ $monument->primary_name }}"
                              class="w-full h-48 object-cover">
                         <!-- Photo Info Overlay -->
                         <div class="absolute bottom-2 right-2 bg-black bg-opacity-70 text-white text-xs rounded px-2 py-1 flex items-center space-x-2">
                             @php
-                                $author = $monument->featured_photo->photographer;
-                                $license = $monument->featured_photo->license_display_name;
+                                $author = $cardPhoto->photographer;
+                                $license = $cardPhoto->license_display_name;
                                 $isPublicDomain = Str::contains(strtolower($license), 'public domain') || strtolower($license) === 'cc0';
                             @endphp
                             @if($isPublicDomain)
@@ -123,11 +124,13 @@
                             @elseif($license)
                                 <span>{{ $license }}</span>
                             @endif
-                            <a href="{{ $monument->featured_photo->commons_url }}" target="_blank" title="Wikimedia Commons" class="ml-1">
+                            @if(!empty($cardPhoto->commons_url))
+                            <a href="{{ $cardPhoto->commons_url }}" target="_blank" title="Wikimedia Commons" class="ml-1">
                               
                                 <svg fill="currentColor" class="h-4 inline" viewBox="0 0 24 24" role="img" xmlns="http://www.w3.org/2000/svg"><title>Wikimedia Commons icon</title><path d="M9.048 15.203a2.952 2.952 0 1 1 5.904 0 2.952 2.952 0 0 1-5.904 0zm11.749.064v-.388h-.006a8.726 8.726 0 0 0-.639-2.985 8.745 8.745 0 0 0-1.706-2.677l.004-.004-.186-.185-.044-.045-.026-.026-.204-.204-.006.007c-.848-.756-1.775-1.129-2.603-1.461-1.294-.519-2.138-.857-2.534-2.467.443.033.839.174 1.13.481C15.571 6.996 11.321 0 11.321 0s-1.063 3.985-2.362 5.461c-.654.744.22.273 1.453-.161.279 1.19.77 2.119 1.49 2.821.791.771 1.729 1.148 2.556 1.48.672.27 1.265.508 1.767.916l-.593.594-.668-.668-.668 2.463 2.463-.668-.668-.668.6-.599a6.285 6.285 0 0 1 1.614 3.906h-.844v-.944l-2.214 1.27 2.214 1.269v-.944h.844a6.283 6.283 0 0 1-1.614 3.906l-.6-.599.668-.668-2.463-.668.668 2.463.668-.668.6.6a6.263 6.263 0 0 1-3.907 1.618v-.848h.945L12 18.45l-1.27 2.214h.944v.848a6.266 6.266 0 0 1-3.906-1.618l.599-.6.668.668.668-2.463-2.463.668.668.668-.6.599a6.29 6.29 0 0 1-1.615-3.906h.844v.944l2.214-1.269-2.214-1.27v.944h-.843a6.292 6.292 0 0 1 1.615-3.906l.6.599-.668.668 2.463.668-.668-2.463-.668.668-2.359-2.358-.23.229-.044.045-.185.185.004.004a8.749 8.749 0 0 0-2.345 5.662h-.006v.649h.006a8.749 8.749 0 0 0 2.345 5.662l-.004.004.185.185.045.045.045.045.185.185.004-.004a8.73 8.73 0 0 0 2.677 1.707 8.75 8.75 0 0 0 2.985.639V24h.649v-.006a8.75 8.75 0 0 0 2.985-.639 8.717 8.717 0 0 0 2.677-1.707l.004.004.187-.187.044-.043.043-.044.187-.186-.004-.004a8.733 8.733 0 0 0 1.706-2.677 8.726 8.726 0 0 0 .639-2.985h.006v-.259z"/></svg>
 
                             </a>
+                            @endif
                         </div>
                     @else
                         <div class="w-full h-48 bg-gray-200 flex items-center justify-center">
@@ -186,10 +189,10 @@
                             <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                             </svg>
-                            <span>{{ $monument->photo_count }} fotoğraf</span>
+                            <span>{{ $monument->effective_photo_count ?? $monument->photo_count }} fotoğraf</span>
                         </div>
                         
-                        @if($monument->photos->count() > 0)
+                        @if(($monument->effective_has_photos ?? null) === true || $monument->photos->count() > 0)
                             <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                 Fotoğraflı
                             </span>
