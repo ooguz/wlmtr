@@ -16,6 +16,22 @@
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
 
+    <!-- OpenGraph and Twitter tags --> 
+
+    <!-- OpenGraph tags -->
+    <meta property="og:title" content="{{ config('app.name', 'Viki Anıtları Seviyor Türkiye') }} - @yield('title', 'Anıtlar')" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="{{ url()->current() }}" />
+    <meta property="og:image" content="{{ asset('wlm-logo.svg') }}" />
+    <meta property="og:description" content="Viki Anıtları Seviyor Türkiye - Türkiye'deki kültürel mirası fotoğraflayın ve keşfedin" />
+
+    <!-- Twitter Card tags -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="{{ config('app.name', 'Viki Anıtları Seviyor Türkiye') }} - @yield('title', 'Anıtlar')" />
+    <meta name="twitter:description" content="Türkiye'deki kültürel mirası fotoğraflayın ve keşfedin" />
+    <meta name="twitter:image" content="{{ asset('wlm-logo.svg') }}" />
+    <meta name="twitter:creator" content="@WikimediaTurkey" />
+
     <!-- Scripts -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     
