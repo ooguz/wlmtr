@@ -161,7 +161,7 @@
                             $rights = $commonsUserInfo['rights'] ?? $user->wikimedia_rights ?? [];
                         @endphp
 
-                        @if(!empty($groups))
+                        @if(!empty($groups) && 1==2)
                             <div class="mt-6">
                                 <dt class="text-sm font-medium text-gray-500 mb-2">Commons Grupları</dt>
                                 <div class="flex flex-wrap gap-2">
@@ -174,7 +174,7 @@
                             </div>
                         @endif
 
-                        @if(!empty($rights))
+                        @if(!empty($rights) && 1==2)
                             <div class="mt-6">
                                 <dt class="text-sm font-medium text-gray-500 mb-2">Commons Hakları</dt>
                                 <div class="flex flex-wrap gap-2">
