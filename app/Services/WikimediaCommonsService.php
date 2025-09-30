@@ -19,17 +19,17 @@ class WikimediaCommonsService
     public function fetchPhotosForMonument(Monument $monument): array
     {
         $photos = [];
-
+        
         // Try to fetch photos using the monument's Wikidata ID
         if ($monument->wikidata_id) {
             $photos = array_merge($photos, $this->fetchPhotosByWikidataId($monument->wikidata_id));
         }
-
+        
         // Try to fetch photos using Commons category if available
         if ($monument->commons_url) {
             $photos = array_merge($photos, $this->fetchPhotosByCategory($monument->commons_url));
         }
-
+        
         return $photos;
     }
 
@@ -116,7 +116,7 @@ class WikimediaCommonsService
     private function processCommonsSearchResults(array $data): array
     {
         $photos = [];
-
+        
         if (! isset($data['query']['search'])) {
             return $photos;
         }
@@ -143,7 +143,7 @@ class WikimediaCommonsService
     private function processCommonsCategoryResults(array $data): array
     {
         $photos = [];
-
+        
         if (! isset($data['query']['categorymembers'])) {
             return $photos;
         }
@@ -171,7 +171,7 @@ class WikimediaCommonsService
     {
         $photos = [];
         $titles = implode('|', $files);
-
+        
         $query = [
             'action' => 'query',
             'format' => 'json',
@@ -216,7 +216,7 @@ class WikimediaCommonsService
         }
 
         $filename = str_replace('File:', '', $title);
-
+        
         // Get the actual file URL from the API response
         $originalUrl = null;
         if (isset($page['imageinfo'][0]['url'])) {
@@ -236,7 +236,7 @@ class WikimediaCommonsService
         if ($author) {
             $author = strip_tags($author);
         }
-
+        
         return [
             'commons_filename' => $filename,
             'commons_url' => "https://commons.wikimedia.org/wiki/{$title}",
@@ -263,7 +263,7 @@ class WikimediaCommonsService
         }
 
         $filename = str_replace('File:', '', $title);
-
+        
         // Get the actual file URL from the API response
         $originalUrl = null;
         if (isset($result['imageinfo'][0]['url'])) {
@@ -272,7 +272,7 @@ class WikimediaCommonsService
             // Fallback to constructed URL
             $originalUrl = $this->buildOriginalUrl($filename);
         }
-
+        
         return [
             'commons_filename' => $filename,
             'commons_url' => "https://commons.wikimedia.org/wiki/{$title}",
@@ -313,12 +313,12 @@ class WikimediaCommonsService
             'iiprop' => 'url',
             'format' => 'json',
         ];
-
+        
         try {
             $response = Http::withHeaders([
                 'User-Agent' => self::USER_AGENT,
             ])->get($apiUrl, $params);
-
+            
             if ($response->successful()) {
                 $data = $response->json();
                 if (isset($data['query']['pages'])) {
@@ -335,7 +335,7 @@ class WikimediaCommonsService
                 'error' => $e->getMessage(),
             ]);
         }
-
+        
         // Fallback to constructed URL (may not work for all files)
         $filename = str_replace(' ', '_', $filename);
         $encodedFilename = rawurlencode($filename);
