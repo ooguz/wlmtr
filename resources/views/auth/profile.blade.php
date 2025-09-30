@@ -64,7 +64,7 @@
                     <div>
                         
                         <h2 class="text-xl font-semibold text-gray-900">{{ $user->display_name }}</h2>
-                        <p class="text-gray-600">{{ $commonsUserInfo['registration']>format('d.m.Y') }} tarihinden beri üye</p>
+                        <p class="text-gray-600">{{ $commonsUserInfo['registration']->format('d.m.Y') }} tarihinden beri üye</p>
                         @if($user->isWikimediaConnected())
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                 Commons Bağlı
