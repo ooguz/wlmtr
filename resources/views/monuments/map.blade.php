@@ -935,7 +935,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Build description with monument name and WLM template
         let description = monument.name;
         if (monument.wikidata_id) {
+            description += '\{\{on Wikidata|' + monument.wikidata_id + '\}\}';
             description += '\{\{Load via app WLM.tr|year=' + new Date().getFullYear() + '|source=wizard\}\}';
+
         }
         
         const params = {
@@ -943,12 +945,21 @@ document.addEventListener('DOMContentLoaded', function() {
             descriptionlang: 'tr',
             campaign: 'wlm-tr',
         };
-        
+        params.categories = monument.province ?? "Turkey";
+        if (monument.commons_category) {
+            params.categories += '|' + monument.commons_category;
+        }
+        params.categories = monument.province;
         // Add categories based on location hierarchy
         if (monument.location_hierarchy_tr) {
-            params.categories = monument.location_hierarchy_tr;
+            params.categories += '|' + monument.location_hierarchy_tr;
         } else if (monument.province) {
-            params.categories = monument.province;
+            params.categories += '|' + monument.province;
+        }
+
+        if (monument.latitude && monument.longitude) {
+            params.lat = monument.latitude;
+            params.lon = monument.longitude;
         }
         
         // Add monument ID if available
