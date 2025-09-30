@@ -957,8 +957,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Add categories based on location hierarchy
             console.log(monument.latitude, monument.longitude);
             console.log(monument);
-            params.lat = monument.latitude;
-            params.lon = monument.longitude;
+            params.lat = monument.coordinates['lat'];
+            params.lon = monument.coordinates['lng'];
         
         
         // Add monument ID if available

@@ -373,7 +373,8 @@ class Monument extends Model
         // Build description with monument name and WLM template
         $description = $this->primary_name;
         if ($this->wikidata_id) {
-            $description .= ' {{Load via app WLM.tr|year='.date('Y').'|source=wizard}}';
+            $description .= "\n{{on Wikidata|{$this->wikidata_id}}}";
+            $description .= "\n{{Load via app WLM.tr|year=".date('Y').'|source=wizard}}';
         }
 
         $params = [
@@ -382,14 +383,26 @@ class Monument extends Model
             'campaign' => 'wlm-tr',
         ];
 
-        // Add categories based on location hierarchy
-        if ($this->location_hierarchy_tr) {
-            $params['categories'] = $this->location_hierarchy_tr;
+        // Add categories
+        $categories = '';
+        if (is_null($this->province) && $this->location_hierarchy_tr) {
+            $categories = explode(',', $this->location_hierarchy_tr)[0];
         } elseif ($this->province) {
-            $provinceName = \App\Services\WikidataSparqlService::getLabelForQCode($this->province);
-            if ($provinceName) {
-                $params['categories'] = $provinceName;
-            }
+            $categories = $this->province;
+        }
+
+        if ($this->commons_category) {
+            $categories .= ($categories ? '|' : '').$this->commons_category;
+        }
+
+        if ($categories) {
+            $params['categories'] = $categories;
+        }
+
+        // Add coordinates
+        if ($this->hasCoordinates()) {
+            $params['lat'] = (float) $this->latitude;
+            $params['lon'] = (float) $this->longitude;
         }
 
         // Add monument ID if available
