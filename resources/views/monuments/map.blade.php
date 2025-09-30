@@ -947,21 +947,18 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         params.categories = "";
         if (monument.province == null) {
-            params.categories = monument.location_hierarchy_tr.split(',')[0];
+            params.categories += monument.location_hierarchy_tr.split(',')[0];
         } else {
-            params.categories = monument.province;
+            params.categories += monument.province;
         }
         if (monument.commons_category) {
             params.categories += '|' + monument.commons_category;
         }
-        params.categories = monument.province;
         // Add categories based on location hierarchy
-       
 
-        if (monument.latitude && monument.longitude) {
             params.lat = monument.latitude;
             params.lon = monument.longitude;
-        }
+        
         
         // Add monument ID if available
         if (monument.wikidata_id) {
