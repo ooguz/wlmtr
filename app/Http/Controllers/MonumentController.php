@@ -100,12 +100,21 @@ class MonumentController extends Controller
             });
         }
 
-        // Distance-based filtering
-        if ($request->filled('lat') && $request->filled('lng') && $request->filled('distance')) {
-            $lat = $request->get('lat');
-            $lng = $request->get('lng');
-            $distance = $request->get('distance', 50); // Default 50km
+        // Distance-based filtering and ordering
+        if ($request->filled('lat') && $request->filled('lng')) {
+            $lat = (float) $request->get('lat');
+            $lng = (float) $request->get('lng');
+            $distance = (float) $request->get('distance', 50); // Default 50km
+
+            // Filter by radius
             $query->withinDistance($lat, $lng, $distance);
+
+            // Order by computed distance (same haversine formula), alias as computed_distance
+            $haversine = '(6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude))))';
+            $query->select('*')
+                ->addSelect(\DB::raw("{$haversine} as computed_distance"))
+                ->addBinding([$lat, $lng, $lat], 'select')
+                ->orderBy('computed_distance');
         }
 
         $monuments = $query->paginate(20);
