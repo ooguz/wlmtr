@@ -26,7 +26,7 @@
     <meta property="og:description" content="Viki Anıtları Seviyor Türkiye - Türkiye'deki kültürel mirası fotoğraflayın ve keşfedin" />
 
     <!-- Twitter Card tags -->
-    <meta name="twitter:card" content="summary_image" />
+    <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="{{ config('app.name', 'Viki Anıtları Seviyor Türkiye') }} - @yield('title', 'Anıtlar')" />
     <meta name="twitter:description" content="Türkiye'deki kültürel mirası fotoğraflayın ve keşfedin" />
     <meta name="twitter:image" content="{{ asset('wlm-logo.svg') }}" />
