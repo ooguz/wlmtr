@@ -627,7 +627,7 @@ class WikimediaCommonsService
                     'format' => 'json',
                     'filename' => $filename,
                     'text' => $wikitext,
-                    'comment' => 'Uploaded via WLM.tr Quick Upload',
+                    'comment' => 'Uploaded via vikianitlariseviyor.tr (WLM-tr) Quick Upload',
                     'token' => $csrfToken,
                     'ignorewarnings' => 1,
                 ]);
