@@ -700,7 +700,7 @@ class WikimediaCommonsService
             $response = Http::withHeaders([
                 'User-Agent' => self::USER_AGENT,
                 'Authorization' => 'Bearer '.$accessToken,
-            ])->post(self::COMMONS_API_ENDPOINT, [
+            ])->get(self::COMMONS_API_ENDPOINT, [
                 'action' => 'query',
                 'meta' => 'tokens',
                 'type' => 'csrf',
@@ -711,7 +711,15 @@ class WikimediaCommonsService
             if ($response->successful()) {
                 $data = $response->json();
 
-                Log::info('CSRF Token Response', ['data' => $data]);
+                Log::info('CSRF Token Response', [
+                    'status' => $response->status(),
+                    'has_data' => ! empty($data),
+                    'has_query' => isset($data['query']),
+                    'has_tokens' => isset($data['query']['tokens']),
+                    'has_csrf' => isset($data['query']['tokens']['csrftoken']),
+                    'token_preview' => isset($data['query']['tokens']['csrftoken']) ? substr($data['query']['tokens']['csrftoken'], 0, 10).'...' : null,
+                    'full_response' => $data,
+                ]);
 
                 return $data['query']['tokens']['csrftoken'] ?? null;
             }
@@ -719,11 +727,12 @@ class WikimediaCommonsService
             Log::error('Failed to get CSRF token - response not successful', [
                 'status' => $response->status(),
                 'body' => $response->body(),
+                'headers' => $response->headers(),
             ]);
 
             return null;
         } catch (\Exception $e) {
-            Log::error('Failed to get CSRF token', [
+            Log::error('Failed to get CSRF token - exception', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
