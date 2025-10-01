@@ -773,7 +773,15 @@ class WikimediaCommonsService
     ): string {
         $wikitext = "== {{int:filedesc}} ==\n";
         $wikitext .= "{{Information\n";
-        $wikitext .= "|description={{tr|1={$description}}}\n";
+
+        // Prepare description with Wikidata and WLM templates
+        $descriptionText = $description;
+        if ($monument->wikidata_id) {
+            $descriptionText .= "\n{{on Wikidata|{$monument->wikidata_id}}}";
+        }
+        $descriptionText .= "\n{{Load via app WLM.tr|year=2025|source=desktop}}";
+
+        $wikitext .= "|description={{tr|1={$descriptionText}}}\n";
         $wikitext .= "|date={$date}\n";
         $wikitext .= "|source={{own}}\n";
         $wikitext .= "|author=[[User:{$user->wikimedia_username}|{$user->wikimedia_username}]]\n";
@@ -788,12 +796,18 @@ class WikimediaCommonsService
         $wikitext .= "== {{int:license-header}} ==\n";
         $wikitext .= "{{self|cc-by-sa-4.0}}\n\n";
 
+        // Add Wiki Loves Monuments template (required)
+        $wikitext .= "{{Wiki Loves Monuments 2025|tr}}\n\n";
+
         // Add categories
         if (! empty($categories)) {
             foreach ($categories as $category) {
                 $wikitext .= "[[Category:{$category}]]\n";
             }
         }
+
+        // Add campaign category (required)
+        $wikitext .= "[[Category:Uploaded via Campaign:wlm-tr]]\n";
 
         return $wikitext;
     }
