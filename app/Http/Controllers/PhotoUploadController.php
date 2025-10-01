@@ -34,14 +34,29 @@ class PhotoUploadController extends Controller
 
             // Check if user has a valid access token
             if (! $user->wikimedia_access_token) {
+                Log::error('User has no wikimedia access token', [
+                    'user_id' => $user->id,
+                    'wikimedia_id' => $user->wikimedia_id,
+                    'wikimedia_username' => $user->wikimedia_username,
+                ]);
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Wikimedia bağlantınız yok. Lütfen çıkış yapıp tekrar giriş yapın.',
+                    'message' => 'Wikimedia erişim anahtarınız yok. Lütfen çıkış yapıp tekrar giriş yapın.',
+                    'debug' => config('app.debug') ? [
+                        'has_wikimedia_id' => ! empty($user->wikimedia_id),
+                        'wikimedia_username' => $user->wikimedia_username,
+                    ] : null,
                 ], 401);
             }
 
             // Check if token is expired
             if ($user->isWikimediaTokenExpired()) {
+                Log::warning('User wikimedia token expired', [
+                    'user_id' => $user->id,
+                    'expires_at' => $user->wikimedia_token_expires_at,
+                ]);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Wikimedia oturumunuz sona erdi. Lütfen çıkış yapıp tekrar giriş yapın.',
