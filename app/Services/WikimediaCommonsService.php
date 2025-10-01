@@ -599,9 +599,14 @@ class WikimediaCommonsService
             // First, get a CSRF token
             $csrfToken = $this->getCSRFToken($user->wikimedia_access_token);
             if (! $csrfToken) {
+                Log::error('Could not get CSRF token for upload', [
+                    'user_id' => $user->id,
+                    'has_token' => ! empty($user->wikimedia_access_token),
+                ]);
+
                 return [
                     'success' => false,
-                    'error' => 'CSRF token alınamadı.',
+                    'error' => 'CSRF token alınamadı. Lütfen çıkış yapıp tekrar giriş yapın.',
                 ];
             }
 
@@ -628,18 +633,24 @@ class WikimediaCommonsService
                 ]);
 
             if (! $response->successful()) {
-                Log::error('Commons upload failed', [
+                Log::error('Commons upload failed - HTTP error', [
                     'status' => $response->status(),
                     'response' => $response->body(),
+                    'user_id' => $user->id,
                 ]);
 
                 return [
                     'success' => false,
-                    'error' => 'Yükleme başarısız oldu.',
+                    'error' => 'Yükleme başarısız oldu. HTTP Hata: '.$response->status(),
                 ];
             }
 
             $data = $response->json();
+
+            Log::info('Commons upload response', [
+                'data' => $data,
+                'user_id' => $user->id,
+            ]);
 
             if (isset($data['upload']['result']) && $data['upload']['result'] === 'Success') {
                 return [
@@ -650,9 +661,22 @@ class WikimediaCommonsService
                 ];
             }
 
+            $errorMessage = 'Bilinmeyen hata.';
+            if (isset($data['error'])) {
+                $errorMessage = $data['error']['info'] ?? $data['error']['code'] ?? $errorMessage;
+            } elseif (isset($data['upload']['warnings'])) {
+                $warnings = array_values($data['upload']['warnings']);
+                $errorMessage = 'Uyarı: '.($warnings[0] ?? 'Dosya yüklenemedi');
+            }
+
+            Log::error('Commons upload failed - API error', [
+                'error_data' => $data,
+                'user_id' => $user->id,
+            ]);
+
             return [
                 'success' => false,
-                'error' => $data['error']['info'] ?? 'Bilinmeyen hata.',
+                'error' => $errorMessage,
             ];
 
         } catch (\Exception $e) {
@@ -676,23 +700,32 @@ class WikimediaCommonsService
             $response = Http::withHeaders([
                 'User-Agent' => self::USER_AGENT,
                 'Authorization' => 'Bearer '.$accessToken,
-            ])->get(self::COMMONS_API_ENDPOINT, [
+            ])->post(self::COMMONS_API_ENDPOINT, [
                 'action' => 'query',
                 'meta' => 'tokens',
                 'type' => 'csrf',
                 'format' => 'json',
+                'formatversion' => '2',
             ]);
 
             if ($response->successful()) {
                 $data = $response->json();
 
+                Log::info('CSRF Token Response', ['data' => $data]);
+
                 return $data['query']['tokens']['csrftoken'] ?? null;
             }
+
+            Log::error('Failed to get CSRF token - response not successful', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
 
             return null;
         } catch (\Exception $e) {
             Log::error('Failed to get CSRF token', [
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return null;

@@ -19,7 +19,14 @@ class WikimediaOAuthService extends AbstractProvider
     /**
      * The scopes being requested.
      */
-    protected $scopes = ['editpage', 'createeditmovepage', 'uploadfile'];
+    protected $scopes = [
+        'basic',
+        'highvolume',
+        'editpage',
+        'createeditmovepage',
+        'uploadfile',
+        'uploadeditmovefile',
+    ];
 
     /**
      * The scope separator.
