@@ -776,10 +776,7 @@ class WikimediaCommonsService
 
         // Prepare description with Wikidata and WLM templates
         $descriptionText = $description;
-        if ($monument->wikidata_id) {
-            $descriptionText .= "\n{{on Wikidata|{$monument->wikidata_id}}}";
-        }
-        $descriptionText .= "\n{{Load via app WLM.tr|year=2025|source=desktop}}";
+        
 
         $wikitext .= "|description={{tr|1={$descriptionText}}}\n";
         $wikitext .= "|date={$date}\n";
