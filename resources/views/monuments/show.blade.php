@@ -246,7 +246,7 @@
                 </div>
             </a>
             @else
-            <a href="{{ route('auth.login') }}" 
+            <a href="{{ route('auth.login', ['return_url' => url()->current()]) }}" 
                class="block w-full mb-6 bg-green-600 hover:bg-green-700 text-white text-center px-6 py-3 rounded-lg shadow-md font-medium transition-colors">
                 <div class="flex items-center justify-center">
                 <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 -960 960 960"><path d="M480-120v-80h280v-560H480v-80h280q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H480Zm-80-160-55-58 102-102H120v-80h327L345-622l55-58 200 200-200 200Z"/></svg>

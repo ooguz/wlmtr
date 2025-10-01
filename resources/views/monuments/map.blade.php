@@ -758,7 +758,9 @@ document.addEventListener('DOMContentLoaded', function() {
             uploadWizardText.textContent = 'Fotoğraf Yükleme Sihirbazı';
             uploadWizardLink.setAttribute('target', '_blank');
         } else {
-            uploadWizardLink.href = '{{ route("auth.login") }}';
+            const monumentDetailUrl = `/monuments/${monument.id}`;
+            const loginUrl = '{{ route("auth.login") }}' + '?return_url=' + encodeURIComponent(monumentDetailUrl);
+            uploadWizardLink.href = loginUrl;
             uploadWizardText.textContent = 'Fotoğraf yüklemek için giriş yapın';
             uploadWizardLink.removeAttribute('target');
         }

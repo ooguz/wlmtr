@@ -31,9 +31,14 @@ class WikimediaAuthController extends Controller
     /**
      * Redirect to Wikimedia OAuth.
      */
-    public function redirectToWikimedia(): RedirectResponse
+    public function redirectToWikimedia(Request $request): RedirectResponse
     {
         try {
+            // Store the intended URL if provided
+            if ($request->has('return_url')) {
+                session()->put('url.intended', $request->input('return_url'));
+            }
+
             return Socialite::driver('wikimedia')
                 ->with([
                     // Hint login UI language explicitly
