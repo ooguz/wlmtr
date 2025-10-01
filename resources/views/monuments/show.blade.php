@@ -422,6 +422,8 @@
                 iconAnchor: [10, 10]
             })
         }).addTo(map);
+        const f12 = document.getElementsByClassName('leaflet-attribution-flag'); 
+        Array.from(f12).forEach(f => f.remove());
     });
     </script>
     @endpush
@@ -688,6 +690,8 @@
             }
         };
     }
+   
+    
 
     function closeQuickUploadModal() {
         const modal = document.getElementById('quickUploadModal');
@@ -804,6 +808,7 @@
             button.textContent = 'Yükle';
         }
     }
+   
     </script>
     @endpush
 @endsection 
