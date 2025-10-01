@@ -22,7 +22,7 @@
     
     <!-- Search Panel - hidden on mobile by default; opened via mobile search toggle -->
     <div id="searchPanel" class="absolute top-4 left-4 z-20 bg-white rounded-lg shadow-lg p-4 w-80 max-h-[calc(120vh-8rem)] overflow-y-auto hidden md:block">
-        <h3 class="text-lg font-semibold mb-4">Anıt Ara</h3>
+        <h3 class="text-lg font-semibold mb-4">Anıt ara <i class="cc-icon cc-cc text-gray-500"></i><i class="cc-icon cc-by text-gray-500"></i><i class="cc-icon cc-sa text-gray-500"></i></h3>
         
         <!-- Search Input -->
         <div class="mb-4">
@@ -215,6 +215,20 @@
             </a>
         </div>
         
+        <!-- Quick Upload Button (Authenticated Users Only) -->
+        @auth
+        <div class="mt-3">
+            <button id="quickUploadBtn" 
+                    onclick="quickUpload()" 
+                    class="w-full bg-green-600 text-white text-center px-3 py-2 rounded-md hover:bg-green-700 text-sm font-medium flex items-center justify-center">
+                <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                </svg>
+                Hızlı Fotoğraf Yükle
+            </button>
+        </div>
+        @endauth
+        
         <!-- Upload Wizard Link -->
         <div class="mt-3">
             <a id="monumentUploadWizardLink" 
@@ -225,7 +239,7 @@
                target="_blank"
                data-auth="true"
                @endguest
-               class="w-full bg-green-600 text-white text-center px-3 py-2 rounded-md hover:bg-green-700 text-sm font-medium flex items-center justify-center">
+               class="w-full bg-gray-600 text-white text-center px-3 py-2 rounded-md hover:bg-gray-700 text-sm font-medium flex items-center justify-center">
                 <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
                 </svg>
@@ -983,6 +997,294 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         return baseUrl + '?' + new URLSearchParams(params).toString();
+    }
+    
+    // Quick Upload functionality
+    let selectedFile = null;
+    let currentMonument = null;
+    
+    // Store current monument when showing info panel
+    const originalShowMonumentInfo = showMonumentInfo;
+    showMonumentInfo = function(monument) {
+        currentMonument = monument;
+        originalShowMonumentInfo(monument);
+    };
+    
+    window.quickUpload = function() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.capture = 'environment';
+        
+        input.onchange = function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                selectedFile = file;
+                extractEXIFAndShowModal(file);
+            }
+        };
+        
+        input.click();
+    };
+    
+    function extractEXIFAndShowModal(file) {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                const photoDate = getPhotoDate(file);
+                const title = getTitleSuggestion(file, photoDate);
+                showUploadModal(e.target.result, title, photoDate);
+            };
+            img.src = e.target.result;
+        };
+        
+        reader.readAsDataURL(file);
+    }
+    
+    function getPhotoDate(file) {
+        const modifiedDate = new Date(file.lastModified);
+        return modifiedDate.toISOString().split('T')[0];
+    }
+    
+    function getTitleSuggestion(file, date) {
+        const monumentName = currentMonument ? currentMonument.name : 'Monument';
+        return `${monumentName} ${date}`;
+    }
+    
+    function showUploadModal(imageDataUrl, suggestedTitle, suggestedDate) {
+        const monumentId = currentMonument ? currentMonument.id : null;
+        const commonsCategory = currentMonument ? (currentMonument.commons_category || '') : '';
+        
+        const modal = document.createElement('div');
+        modal.id = 'quickUploadModal';
+        modal.className = 'fixed inset-0 bg-gray-900/75 flex items-center justify-center p-0 md:p-4';
+        modal.style.zIndex = '9000';
+        
+        modal.innerHTML = `
+            <div class="bg-white h-full w-full md:h-auto md:rounded-lg md:max-w-4xl md:max-h-[90vh] overflow-y-auto">
+                <div class="p-4 md:p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-bold text-gray-900">Hızlı Fotoğraf Yükle</h2>
+                        <button onclick="closeQuickUploadModal()" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <img src="${imageDataUrl}" alt="Preview" class="max-w-full h-64 object-contain mx-auto rounded-lg border">
+                    </div>
+                    
+                    <form id="quickUploadForm" class="space-y-4">
+                        <input type="hidden" name="monument_id" value="${monumentId}">
+                        
+                        <div>
+                            <label for="photoTitle" class="block text-sm font-medium text-gray-700 mb-1">
+                                Görselin Başlığı <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text" id="photoTitle" name="title" value="${suggestedTitle}" required
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        
+                        <div>
+                            <label for="photoDate" class="block text-sm font-medium text-gray-700 mb-1">
+                                Tarih <span class="text-red-500">*</span>
+                            </label>
+                            <input type="date" id="photoDate" name="date" value="${suggestedDate}" required
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        
+                        <div>
+                            <label for="photoCategories" class="block text-sm font-medium text-gray-700 mb-1">
+                                Kategoriler
+                            </label>
+                            <div id="categoriesContainer" class="mb-2 flex flex-wrap gap-2">
+                                ${commonsCategory ? `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800" data-category="${commonsCategory}">
+                                    ${commonsCategory}
+                                    <button type="button" onclick="removeCategory(this)" class="ml-2 text-blue-600 hover:text-blue-800">×</button>
+                                </span>` : ''}
+                            </div>
+                            <div class="flex gap-2">
+                                <input type="text" id="categoryInput" placeholder="Kategori ekle"
+                                       class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <button type="button" onclick="addCategory()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">
+                                    Ekle
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gray-50 p-4 rounded-md">
+                            <div class="flex items-center">
+                                <svg class="w-5 h-5 text-gray-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                                </svg>
+                                <span class="text-sm text-gray-600">
+                                    Lisans: <i class="cc-icon cc-cc"></i><i class="cc-icon cc-by"></i><i class="cc-icon cc-sa"></i> <strong>Creative Commons Atıf-BenzeriPaylaşım 4.0 Uluslararası</strong>
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div id="uploadSuccess" class="hidden bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md">
+                            <div class="flex items-start">
+                                <svg class="w-5 h-5 text-green-500 mt-0.5 mr-2 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                <div class="flex-1">
+                                    <p id="uploadSuccessMessage" class="font-medium"></p>
+                                    <p class="text-sm mt-1">Birkaç saniye içinde dosyaya yönlendirileceksiniz...</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="uploadError" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+                            <div class="flex items-start">
+                                <svg class="w-5 h-5 text-red-500 mt-0.5 mr-2 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                                </svg>
+                                <p id="uploadErrorMessage" class="flex-1"></p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex gap-3">
+                            <button type="submit" id="uploadButton" 
+                                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-md transition-colors">
+                                Yükle
+                            </button>
+                            <button type="button" onclick="closeQuickUploadModal()" 
+                                    class="px-6 py-3 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                                İptal
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        document.getElementById('quickUploadForm').onsubmit = function(e) {
+            e.preventDefault();
+            uploadPhoto();
+        };
+        
+        document.getElementById('categoryInput').onkeypress = function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addCategory();
+            }
+        };
+    }
+    
+    window.closeQuickUploadModal = function() {
+        const modal = document.getElementById('quickUploadModal');
+        if (modal) {
+            modal.remove();
+        }
+        selectedFile = null;
+    };
+    
+    window.addCategory = function() {
+        const input = document.getElementById('categoryInput');
+        const category = input.value.trim();
+        
+        if (category) {
+            const container = document.getElementById('categoriesContainer');
+            const chip = document.createElement('span');
+            chip.className = 'inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800';
+            chip.dataset.category = category;
+            chip.innerHTML = `
+                ${category}
+                <button type="button" onclick="removeCategory(this)" class="ml-2 text-blue-600 hover:text-blue-800">×</button>
+            `;
+            container.appendChild(chip);
+            input.value = '';
+        }
+    };
+    
+    window.removeCategory = function(button) {
+        button.parentElement.remove();
+    };
+    
+    function getCategories() {
+        const chips = document.querySelectorAll('#categoriesContainer span');
+        return Array.from(chips).map(chip => chip.dataset.category);
+    }
+    
+    async function uploadPhoto() {
+        const form = document.getElementById('quickUploadForm');
+        const button = document.getElementById('uploadButton');
+        const errorDiv = document.getElementById('uploadError');
+        const errorMessage = document.getElementById('uploadErrorMessage');
+        const successDiv = document.getElementById('uploadSuccess');
+        const successMessage = document.getElementById('uploadSuccessMessage');
+        
+        button.disabled = true;
+        button.innerHTML = '<svg class="animate-spin h-5 w-5 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+        errorDiv.classList.add('hidden');
+        successDiv.classList.add('hidden');
+        
+        try {
+            const formData = new FormData();
+            formData.append('photo', selectedFile);
+            formData.append('title', document.getElementById('photoTitle').value);
+            formData.append('date', document.getElementById('photoDate').value);
+            formData.append('monument_id', document.querySelector('input[name="monument_id"]').value);
+            
+            const categories = getCategories();
+            categories.forEach((cat, index) => {
+                formData.append(`categories[${index}]`, cat);
+            });
+            
+            const csrfToken = document.querySelector('meta[name="csrf-token"]');
+            if (!csrfToken) {
+                throw new Error('CSRF token bulunamadı. Lütfen sayfayı yenileyin.');
+            }
+            
+            const response = await fetch('{{ route("photos.upload") }}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken.content,
+                    'Accept': 'application/json'
+                },
+                body: formData
+            });
+            
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                console.error('Non-JSON response:', text);
+                throw new Error('Sunucu beklenmeyen bir yanıt döndürdü. Lütfen giriş yapıp tekrar deneyin.');
+            }
+            
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                successMessage.textContent = result.message || 'Fotoğraf başarıyla yüklendi!';
+                successDiv.classList.remove('hidden');
+                
+                if (result.data?.descriptionurl) {
+                    window.open(result.data.descriptionurl, '_blank');
+                }
+                
+                setTimeout(() => {
+                    window.location.reload();
+                }, 3000);
+            } else {
+                errorMessage.textContent = result.message || result.errors?.[0] || 'Yükleme başarısız oldu.';
+                errorDiv.classList.remove('hidden');
+                button.disabled = false;
+                button.textContent = 'Yükle';
+            }
+        } catch (error) {
+            console.error('Upload error:', error);
+            errorMessage.textContent = error.message || 'Bir hata oluştu. Lütfen tekrar deneyin.';
+            errorDiv.classList.remove('hidden');
+            button.disabled = false;
+            button.textContent = 'Yükle';
+        }
     }
 });
 </script>

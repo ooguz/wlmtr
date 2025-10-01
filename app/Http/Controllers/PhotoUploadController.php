@@ -125,7 +125,7 @@ class PhotoUploadController extends Controller
         // Add Wikidata template if available
         if ($monument->wikidata_id) {
             $description .= "\n{{on Wikidata|{$monument->wikidata_id}}}";
-            $description .= "\n{{Load via app WLM.tr|year=".date('Y').'|source=quickupload}}';
+            $description .= "\n{{Load via app WLM.tr|year=".date('Y').'|source='.(request()->userAgent() && str_contains(strtolower(request()->userAgent()), 'mobile') ? 'mobile' : 'desktop').'}}';
         }
 
         return $description;

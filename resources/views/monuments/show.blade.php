@@ -564,12 +564,12 @@
         
         const modal = document.createElement('div');
         modal.id = 'quickUploadModal';
-        modal.className = 'fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 p-4';
+        modal.className = 'fixed inset-0 bg-gray-900/75 flex items-center justify-center z-50 p-0 md:p-4';
         modal.style.zIndex = '9000';
         
         modal.innerHTML = `
-            <div class="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                <div class="p-6">
+            <div class="bg-white h-full w-full md:h-auto md:rounded-lg md:max-w-4xl md:max-h-[90vh] overflow-y-auto">
+                <div class="p-4 md:p-6">
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-2xl font-bold text-gray-900">Hızlı Fotoğraf Yükle</h2>
                         <button onclick="closeQuickUploadModal()" class="text-gray-400 hover:text-gray-600">
@@ -629,6 +629,7 @@
                         <!-- License Info -->
                         <div class="bg-gray-50 p-4 rounded-md">
                             <div class="flex items-center">
+                            <img src="/by-sa.svg" class="w-5 h-5 text-gray-500 mr-2" />     
                                 <svg class="w-5 h-5 text-gray-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
                                 </svg>
@@ -638,8 +639,28 @@
                             </div>
                         </div>
                         
+                        <!-- Success Message -->
+                        <div id="uploadSuccess" class="hidden bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md">
+                            <div class="flex items-start">
+                                <svg class="w-5 h-5 text-green-500 mt-0.5 mr-2 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                <div class="flex-1">
+                                    <p id="uploadSuccessMessage" class="font-medium"></p>
+                                    <p class="text-sm mt-1">Birkaç saniye içinde dosyaya yönlendirileceksiniz...</p>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <!-- Error Message -->
-                        <div id="uploadError" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md"></div>
+                        <div id="uploadError" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+                            <div class="flex items-start">
+                                <svg class="w-5 h-5 text-red-500 mt-0.5 mr-2 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                                </svg>
+                                <p id="uploadErrorMessage" class="flex-1"></p>
+                            </div>
+                        </div>
                         
                         <!-- Submit Button -->
                         <div class="flex gap-3">
@@ -714,11 +735,15 @@
         const form = document.getElementById('quickUploadForm');
         const button = document.getElementById('uploadButton');
         const errorDiv = document.getElementById('uploadError');
+        const errorMessage = document.getElementById('uploadErrorMessage');
+        const successDiv = document.getElementById('uploadSuccess');
+        const successMessage = document.getElementById('uploadSuccessMessage');
         
         // Disable button and show loading
         button.disabled = true;
         button.innerHTML = '<svg class="animate-spin h-5 w-5 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
         errorDiv.classList.add('hidden');
+        successDiv.classList.add('hidden');
         
         try {
             const formData = new FormData();
@@ -757,19 +782,29 @@
             const result = await response.json();
             
             if (response.ok && result.success) {
-                // Show success message and reload page
-                alert('Fotoğraf başarıyla yüklendi! Sayfa yeniden yükleniyor...');
-                window.location.reload();
+                // Show success message
+                successMessage.textContent = result.message || 'Fotoğraf başarıyla yüklendi!';
+                successDiv.classList.remove('hidden');
+                
+                // Open Commons page in new tab if descriptionurl is available
+                if (result.data?.descriptionurl) {
+                    window.open(result.data.descriptionurl, '_blank');
+                }
+                
+                // Reload page after 3 seconds
+                setTimeout(() => {
+                    window.location.reload();
+                }, 3000);
             } else {
                 // Show error
-                errorDiv.textContent = result.message || result.errors?.[0] || 'Yükleme başarısız oldu.';
+                errorMessage.textContent = result.message || result.errors?.[0] || 'Yükleme başarısız oldu.';
                 errorDiv.classList.remove('hidden');
                 button.disabled = false;
                 button.textContent = 'Yükle';
             }
         } catch (error) {
             console.error('Upload error:', error);
-            errorDiv.textContent = error.message || 'Bir hata oluştu. Lütfen tekrar deneyin.';
+            errorMessage.textContent = error.message || 'Bir hata oluştu. Lütfen tekrar deneyin.';
             errorDiv.classList.remove('hidden');
             button.disabled = false;
             button.textContent = 'Yükle';
