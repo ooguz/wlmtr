@@ -148,7 +148,7 @@
     </div>
     
     <!-- Monument Info Panel -->
-    <div id="monumentInfo" class="absolute top-4 left-4 z-20 bg-white rounded-lg shadow-lg p-4 w-80 max-h-[calc(100vh-8rem)] overflow-y-auto hidden">
+    <div id="monumentInfo" class="absolute top-4 left-4 z-20 bg-white rounded-lg shadow-lg p-4 w-80 max-h-[calc(120vh-8rem)] overflow-y-auto hidden">
         <div class="flex justify-between items-start mb-3">
             <h3 id="monumentTitle" class="text-lg font-semibold"></h3>
             <button id="closeInfo" class="text-gray-400 hover:text-gray-600">
@@ -221,10 +221,8 @@
             <button id="quickUploadBtn" 
                     onclick="quickUpload()" 
                     class="w-full bg-green-600 text-white text-center px-3 py-2 rounded-md hover:bg-green-700 text-sm font-medium flex items-center justify-center">
-                <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                </svg>
-                Hızlı Fotoğraf Yükle
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 -960 960 960"><path d="M480-480ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h320v80H200v560h560v-320h80v320q0 33-23.5 56.5T760-120H200Zm40-160h480L570-480 450-320l-90-120-120 160Zm440-320v-80h-80v-80h80v-80h80v80h80v80h-80v80h-80Z"/></svg>
+                Hızlı fotoğraf yükle
             </button>
         </div>
         @endauth
@@ -240,10 +238,12 @@
                data-auth="true"
                @endguest
                class="w-full bg-gray-600 text-white text-center px-3 py-2 rounded-md hover:bg-gray-700 text-sm font-medium flex items-center justify-center">
-                <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                </svg>
-                <span id="monumentUploadWizardText">Fotoğraf Yükleme Sihirbazı</span>
+               @auth
+               <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 -960 960 960"><path d="M480-480ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h320v80H200v560h560v-320h80v320q0 33-23.5 56.5T760-120H200Zm40-160h480L570-480 450-320l-90-120-120 160Zm440-320v-80h-80v-80h80v-80h80v80h80v80h-80v80h-80Z"/></svg>
+               @else
+               <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 -960 960 960"><path d="M480-120v-80h280v-560H480v-80h280q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H480Zm-80-160-55-58 102-102H120v-80h327L345-622l55-58 200 200-200 200Z"/></svg>
+               @endauth
+                <span id="monumentUploadWizardText">Detaylı yükleme sihirbazı</span>
             </a>
         </div>
     </div>
