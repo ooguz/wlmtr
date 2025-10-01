@@ -97,9 +97,17 @@ class PhotoUploadController extends Controller
                 ]);
             }
 
+            Log::warning('Photo upload failed', [
+                'user_id' => $user->id,
+                'monument_id' => $monument->id,
+                'error' => $result['error'] ?? 'Unknown error',
+                'details' => $result['details'] ?? null,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => $result['error'] ?? 'Yükleme sırasında bir hata oluştu.',
+                'details' => $result['details'] ?? null,
             ], 500);
 
         } catch (\Exception $e) {

@@ -617,12 +617,34 @@ class WikimediaCommonsService
             // Prepare wikitext
             $wikitext = $this->prepareWikitext($description, $date, $categories, $monument, $user);
 
-            // Upload the file
-            $response = Http::withHeaders([
-                'User-Agent' => self::USER_AGENT,
-                'Authorization' => 'Bearer '.$accessToken,
-            ])
-                ->attach('file', file_get_contents($photo->getRealPath()), $filename)
+            // Read file contents before upload
+            $fileContents = file_get_contents($photo->getRealPath());
+            if ($fileContents === false) {
+                Log::error('Could not read uploaded file', [
+                    'path' => $photo->getRealPath(),
+                    'user_id' => $user->id,
+                ]);
+
+                return [
+                    'success' => false,
+                    'error' => 'Dosya okunamadı. Lütfen tekrar deneyin.',
+                ];
+            }
+
+            Log::info('Starting file upload to Commons', [
+                'filename' => $filename,
+                'size' => strlen($fileContents),
+                'user_id' => $user->id,
+            ]);
+
+            // Upload the file with retry logic
+            $response = Http::timeout(120) // Increase timeout for large files
+                ->retry(2, 1000) // Retry twice with 1 second delay for transient errors
+                ->withHeaders([
+                    'User-Agent' => self::USER_AGENT,
+                    'Authorization' => 'Bearer '.$accessToken,
+                ])
+                ->attach('file', $fileContents, $filename)
                 ->post(self::COMMONS_API_ENDPOINT, [
                     'action' => 'upload',
                     'format' => 'json',
@@ -630,7 +652,7 @@ class WikimediaCommonsService
                     'text' => $wikitext,
                     'comment' => 'Uploaded via vikianitlariseviyor.tr (WLM-tr) Quick Upload',
                     'token' => $csrfToken,
-                    'ignorewarnings' => 1,
+                    'ignorewarnings' => 1, // Ignore warnings to avoid uploadstash issues
                 ]);
 
             if (! $response->successful()) {
@@ -663,21 +685,56 @@ class WikimediaCommonsService
             }
 
             $errorMessage = 'Bilinmeyen hata.';
+            $errorDetails = [];
+
             if (isset($data['error'])) {
-                $errorMessage = $data['error']['info'] ?? $data['error']['code'] ?? $errorMessage;
+                $errorCode = $data['error']['code'] ?? '';
+                $errorInfo = $data['error']['info'] ?? $errorMessage;
+
+                // Handle specific error codes
+                if (str_contains($errorCode, 'filebackend') || str_contains($errorInfo, 'storage backend')) {
+                    $errorMessage = 'Wikimedia Commons geçici bir sunucu sorunu yaşıyor. Lütfen birkaç dakika sonra tekrar deneyin.';
+                } elseif (str_contains($errorInfo, 'mwstore://')) {
+                    $errorMessage = 'Wikimedia Commons depolama sistemi şu anda meşgul. Lütfen birkaç dakika sonra tekrar deneyin.';
+                } elseif ($errorCode === 'badtoken') {
+                    $errorMessage = 'Oturumunuzun süresi dolmuş. Lütfen çıkış yapıp tekrar giriş yapın.';
+                } else {
+                    $errorMessage = $errorInfo;
+                }
+
+                $errorDetails = $data['error'];
             } elseif (isset($data['upload']['warnings'])) {
-                $warnings = array_values($data['upload']['warnings']);
-                $errorMessage = 'Uyarı: '.($warnings[0] ?? 'Dosya yüklenemedi');
+                $warnings = $data['upload']['warnings'];
+                // Handle different warning types
+                if (isset($warnings['duplicate'])) {
+                    $errorMessage = 'Bu dosya zaten Commons\'da mevcut.';
+                } elseif (isset($warnings['exists'])) {
+                    $errorMessage = 'Bu isimde bir dosya zaten mevcut.';
+                } elseif (isset($warnings['badfilename'])) {
+                    $errorMessage = 'Dosya adı geçersiz. Lütfen farklı bir başlık deneyin.';
+                } else {
+                    // Get the first warning message
+                    $firstWarning = reset($warnings);
+                    $errorMessage = is_string($firstWarning) ? $firstWarning : 'Dosya yüklenemedi: '.json_encode($firstWarning);
+                }
+                $errorDetails = $warnings;
+            } elseif (isset($data['upload']['result'])) {
+                // If there's a result but it's not Success
+                $errorMessage = 'Yükleme başarısız: '.$data['upload']['result'];
+                $errorDetails = $data['upload'];
             }
 
             Log::error('Commons upload failed - API error', [
                 'error_data' => $data,
+                'error_message' => $errorMessage,
+                'error_details' => $errorDetails,
                 'user_id' => $user->id,
             ]);
 
             return [
                 'success' => false,
                 'error' => $errorMessage,
+                'details' => config('app.debug') ? $errorDetails : null,
             ];
 
         } catch (\Exception $e) {
