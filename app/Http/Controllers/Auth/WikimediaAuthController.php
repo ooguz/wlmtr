@@ -77,6 +77,9 @@ class WikimediaAuthController extends Controller
                 'rights' => [],
                 'edit_count' => 0,
                 'registration_date' => null,
+                'access_token' => $socialiteUser->token,
+                'refresh_token' => $socialiteUser->refreshToken,
+                'token_expires_at' => $socialiteUser->expiresIn ? now()->addSeconds($socialiteUser->expiresIn) : null,
             ];
 
             if (! $userData) {
@@ -174,6 +177,9 @@ class WikimediaAuthController extends Controller
             'wikimedia_rights' => $userData['rights'] ?? $user->wikimedia_rights,
             'wikimedia_edit_count' => $userData['edit_count'] ?? $user->wikimedia_edit_count,
             'wikimedia_registration_date' => $userData['registration_date'] ?? $user->wikimedia_registration_date,
+            'wikimedia_access_token' => $userData['access_token'] ?? $user->wikimedia_access_token,
+            'wikimedia_refresh_token' => $userData['refresh_token'] ?? $user->wikimedia_refresh_token,
+            'wikimedia_token_expires_at' => $userData['token_expires_at'] ?? $user->wikimedia_token_expires_at,
             'has_commons_edit_permission' => $this->wikimediaAuth->hasCommonsEditPermission($userData['username']),
             'last_wikimedia_sync' => now(),
         ]);

@@ -226,14 +226,25 @@
         
         <!-- Sidebar -->
         <div class="lg:col-span-1">
-            <!-- Upload Wizard Button -->
+            <!-- Quick Upload Button -->
             @auth
+            <button onclick="openQuickUploadModal()" 
+               class="block w-full mb-3 bg-blue-600 hover:bg-blue-700 text-white text-center px-6 py-3 rounded-lg shadow-md font-medium transition-colors">
+                <div class="flex items-center justify-center">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                    </svg>
+                    Hızlı Yükle
+                </div>
+            </button>
+            
+            <!-- Upload Wizard Button -->
             <a href="{{ $monument->upload_wizard_url }}" 
                target="_blank"
                class="block w-full mb-6 bg-green-600 hover:bg-green-700 text-white text-center px-6 py-3 rounded-lg shadow-md font-medium transition-colors">
                 <div class="flex items-center justify-center">
                     <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                        <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
                     </svg>
                     Fotoğraf Yükleme Sihirbazı
                 </div>
@@ -495,6 +506,260 @@
             </div>
         `;
         document.body.appendChild(modal);
+    }
+
+    // Quick Upload Modal Functions
+    let selectedFile = null;
+    let exifData = null;
+
+    function openQuickUploadModal() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.capture = 'environment'; // For mobile camera
+        
+        input.onchange = function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                selectedFile = file;
+                extractEXIFAndShowModal(file);
+            }
+        };
+        
+        input.click();
+    }
+
+    function extractEXIFAndShowModal(file) {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                // Try to extract EXIF data (we'll use a simple approach without external library)
+                const photoDate = getPhotoDate(file);
+                const title = getTitleSuggestion(file, photoDate);
+                
+                showUploadModal(e.target.result, title, photoDate);
+            };
+            img.src = e.target.result;
+        };
+        
+        reader.readAsDataURL(file);
+    }
+
+    function getPhotoDate(file) {
+        // Try to get from file's last modified date
+        const modifiedDate = new Date(file.lastModified);
+        return modifiedDate.toISOString().split('T')[0];
+    }
+
+    function getTitleSuggestion(file, date) {
+        const monumentName = '{{ $monument->primary_name }}';
+        return `${monumentName} ${date}`;
+    }
+
+    function showUploadModal(imageDataUrl, suggestedTitle, suggestedDate) {
+        const monumentId = {{ $monument->id }};
+        const commonsCategory = '{{ $monument->commons_category ?? "" }}';
+        
+        const modal = document.createElement('div');
+        modal.id = 'quickUploadModal';
+        modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
+        modal.style.zIndex = '9000';
+        
+        modal.innerHTML = `
+            <div class="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-bold text-gray-900">Hızlı Fotoğraf Yükle</h2>
+                        <button onclick="closeQuickUploadModal()" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <!-- Image Preview -->
+                    <div class="mb-6">
+                        <img src="${imageDataUrl}" alt="Preview" class="max-w-full h-64 object-contain mx-auto rounded-lg border">
+                    </div>
+                    
+                    <!-- Upload Form -->
+                    <form id="quickUploadForm" class="space-y-4">
+                        <input type="hidden" name="monument_id" value="${monumentId}">
+                        
+                        <!-- Title -->
+                        <div>
+                            <label for="photoTitle" class="block text-sm font-medium text-gray-700 mb-1">
+                                Görselin Başlığı <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text" id="photoTitle" name="title" value="${suggestedTitle}" required
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        
+                        <!-- Date -->
+                        <div>
+                            <label for="photoDate" class="block text-sm font-medium text-gray-700 mb-1">
+                                Tarih <span class="text-red-500">*</span>
+                            </label>
+                            <input type="date" id="photoDate" name="date" value="${suggestedDate}" required
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        
+                        <!-- Categories -->
+                        <div>
+                            <label for="photoCategories" class="block text-sm font-medium text-gray-700 mb-1">
+                                Kategoriler
+                            </label>
+                            <div id="categoriesContainer" class="mb-2 flex flex-wrap gap-2">
+                                ${commonsCategory ? `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800" data-category="${commonsCategory}">
+                                    ${commonsCategory}
+                                    <button type="button" onclick="removeCategory(this)" class="ml-2 text-blue-600 hover:text-blue-800">×</button>
+                                </span>` : ''}
+                            </div>
+                            <div class="flex gap-2">
+                                <input type="text" id="categoryInput" placeholder="Kategori ekle"
+                                       class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <button type="button" onclick="addCategory()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">
+                                    Ekle
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- License Info -->
+                        <div class="bg-gray-50 p-4 rounded-md">
+                            <div class="flex items-center">
+                                <svg class="w-5 h-5 text-gray-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                                </svg>
+                                <span class="text-sm text-gray-600">
+                                    Lisans: <strong>Creative Commons Atıf-BenzeriPaylaşım 4.0 Uluslararası</strong>
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <!-- Error Message -->
+                        <div id="uploadError" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md"></div>
+                        
+                        <!-- Submit Button -->
+                        <div class="flex gap-3">
+                            <button type="submit" id="uploadButton" 
+                                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-md transition-colors">
+                                Yükle
+                            </button>
+                            <button type="button" onclick="closeQuickUploadModal()" 
+                                    class="px-6 py-3 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                                İptal
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Setup form submission
+        document.getElementById('quickUploadForm').onsubmit = function(e) {
+            e.preventDefault();
+            uploadPhoto();
+        };
+        
+        // Allow adding categories with Enter key
+        document.getElementById('categoryInput').onkeypress = function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addCategory();
+            }
+        };
+    }
+
+    function closeQuickUploadModal() {
+        const modal = document.getElementById('quickUploadModal');
+        if (modal) {
+            modal.remove();
+        }
+        selectedFile = null;
+        exifData = null;
+    }
+
+    function addCategory() {
+        const input = document.getElementById('categoryInput');
+        const category = input.value.trim();
+        
+        if (category) {
+            const container = document.getElementById('categoriesContainer');
+            const chip = document.createElement('span');
+            chip.className = 'inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800';
+            chip.dataset.category = category;
+            chip.innerHTML = `
+                ${category}
+                <button type="button" onclick="removeCategory(this)" class="ml-2 text-blue-600 hover:text-blue-800">×</button>
+            `;
+            container.appendChild(chip);
+            input.value = '';
+        }
+    }
+
+    function removeCategory(button) {
+        button.parentElement.remove();
+    }
+
+    function getCategories() {
+        const chips = document.querySelectorAll('#categoriesContainer span');
+        return Array.from(chips).map(chip => chip.dataset.category);
+    }
+
+    async function uploadPhoto() {
+        const form = document.getElementById('quickUploadForm');
+        const button = document.getElementById('uploadButton');
+        const errorDiv = document.getElementById('uploadError');
+        
+        // Disable button and show loading
+        button.disabled = true;
+        button.innerHTML = '<svg class="animate-spin h-5 w-5 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+        errorDiv.classList.add('hidden');
+        
+        try {
+            const formData = new FormData();
+            formData.append('photo', selectedFile);
+            formData.append('title', document.getElementById('photoTitle').value);
+            formData.append('date', document.getElementById('photoDate').value);
+            formData.append('monument_id', document.querySelector('input[name="monument_id"]').value);
+            
+            const categories = getCategories();
+            categories.forEach((cat, index) => {
+                formData.append(`categories[${index}]`, cat);
+            });
+            
+            const response = await fetch('{{ route("photos.upload") }}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                },
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Show success message and reload page
+                alert('Fotoğraf başarıyla yüklendi! Sayfa yeniden yükleniyor...');
+                window.location.reload();
+            } else {
+                // Show error
+                errorDiv.textContent = result.message || 'Yükleme başarısız oldu.';
+                errorDiv.classList.remove('hidden');
+                button.disabled = false;
+                button.textContent = 'Yükle';
+            }
+        } catch (error) {
+            console.error('Upload error:', error);
+            errorDiv.textContent = 'Bir hata oluştu. Lütfen tekrar deneyin.';
+            errorDiv.classList.remove('hidden');
+            button.disabled = false;
+            button.textContent = 'Yükle';
+        }
     }
     </script>
     @endpush

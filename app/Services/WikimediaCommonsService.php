@@ -19,17 +19,17 @@ class WikimediaCommonsService
     public function fetchPhotosForMonument(Monument $monument): array
     {
         $photos = [];
-        
+
         // Try to fetch photos using the monument's Wikidata ID
         if ($monument->wikidata_id) {
             $photos = array_merge($photos, $this->fetchPhotosByWikidataId($monument->wikidata_id));
         }
-        
+
         // Try to fetch photos using Commons category if available
         if ($monument->commons_url) {
             $photos = array_merge($photos, $this->fetchPhotosByCategory($monument->commons_url));
         }
-        
+
         return $photos;
     }
 
@@ -116,7 +116,7 @@ class WikimediaCommonsService
     private function processCommonsSearchResults(array $data): array
     {
         $photos = [];
-        
+
         if (! isset($data['query']['search'])) {
             return $photos;
         }
@@ -143,7 +143,7 @@ class WikimediaCommonsService
     private function processCommonsCategoryResults(array $data): array
     {
         $photos = [];
-        
+
         if (! isset($data['query']['categorymembers'])) {
             return $photos;
         }
@@ -171,7 +171,7 @@ class WikimediaCommonsService
     {
         $photos = [];
         $titles = implode('|', $files);
-        
+
         $query = [
             'action' => 'query',
             'format' => 'json',
@@ -216,7 +216,7 @@ class WikimediaCommonsService
         }
 
         $filename = str_replace('File:', '', $title);
-        
+
         // Get the actual file URL from the API response
         $originalUrl = null;
         if (isset($page['imageinfo'][0]['url'])) {
@@ -236,7 +236,7 @@ class WikimediaCommonsService
         if ($author) {
             $author = strip_tags($author);
         }
-        
+
         return [
             'commons_filename' => $filename,
             'commons_url' => "https://commons.wikimedia.org/wiki/{$title}",
@@ -263,7 +263,7 @@ class WikimediaCommonsService
         }
 
         $filename = str_replace('File:', '', $title);
-        
+
         // Get the actual file URL from the API response
         $originalUrl = null;
         if (isset($result['imageinfo'][0]['url'])) {
@@ -272,7 +272,7 @@ class WikimediaCommonsService
             // Fallback to constructed URL
             $originalUrl = $this->buildOriginalUrl($filename);
         }
-        
+
         return [
             'commons_filename' => $filename,
             'commons_url' => "https://commons.wikimedia.org/wiki/{$title}",
@@ -313,12 +313,12 @@ class WikimediaCommonsService
             'iiprop' => 'url',
             'format' => 'json',
         ];
-        
+
         try {
             $response = Http::withHeaders([
                 'User-Agent' => self::USER_AGENT,
             ])->get($apiUrl, $params);
-            
+
             if ($response->successful()) {
                 $data = $response->json();
                 if (isset($data['query']['pages'])) {
@@ -335,7 +335,7 @@ class WikimediaCommonsService
                 'error' => $e->getMessage(),
             ]);
         }
-        
+
         // Fallback to constructed URL (may not work for all files)
         $filename = str_replace(' ', '_', $filename);
         $encodedFilename = rawurlencode($filename);
@@ -581,5 +581,178 @@ class WikimediaCommonsService
 
             return null;
         }
+    }
+
+    /**
+     * Upload a photo to Wikimedia Commons.
+     */
+    public function uploadPhoto(
+        \App\Models\User $user,
+        \Illuminate\Http\UploadedFile $photo,
+        string $title,
+        string $description,
+        string $date,
+        array $categories,
+        \App\Models\Monument $monument
+    ): array {
+        try {
+            // First, get a CSRF token
+            $csrfToken = $this->getCSRFToken($user->wikimedia_access_token);
+            if (! $csrfToken) {
+                return [
+                    'success' => false,
+                    'error' => 'CSRF token alınamadı.',
+                ];
+            }
+
+            // Prepare filename
+            $filename = $this->prepareFilename($title, $photo->getClientOriginalExtension());
+
+            // Prepare wikitext
+            $wikitext = $this->prepareWikitext($description, $date, $categories, $monument, $user);
+
+            // Upload the file
+            $response = Http::withHeaders([
+                'User-Agent' => self::USER_AGENT,
+                'Authorization' => 'Bearer '.$user->wikimedia_access_token,
+            ])
+                ->attach('file', file_get_contents($photo->getRealPath()), $filename)
+                ->post(self::COMMONS_API_ENDPOINT, [
+                    'action' => 'upload',
+                    'format' => 'json',
+                    'filename' => $filename,
+                    'text' => $wikitext,
+                    'comment' => 'Uploaded via WLM.tr Quick Upload',
+                    'token' => $csrfToken,
+                    'ignorewarnings' => 1,
+                ]);
+
+            if (! $response->successful()) {
+                Log::error('Commons upload failed', [
+                    'status' => $response->status(),
+                    'response' => $response->body(),
+                ]);
+
+                return [
+                    'success' => false,
+                    'error' => 'Yükleme başarısız oldu.',
+                ];
+            }
+
+            $data = $response->json();
+
+            if (isset($data['upload']['result']) && $data['upload']['result'] === 'Success') {
+                return [
+                    'success' => true,
+                    'filename' => $data['upload']['filename'],
+                    'url' => $data['upload']['imageinfo']['url'] ?? null,
+                    'descriptionurl' => $data['upload']['imageinfo']['descriptionurl'] ?? null,
+                ];
+            }
+
+            return [
+                'success' => false,
+                'error' => $data['error']['info'] ?? 'Bilinmeyen hata.',
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Photo upload exception', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'error' => 'Yükleme sırasında bir hata oluştu.',
+            ];
+        }
+    }
+
+    /**
+     * Get CSRF token for Commons API.
+     */
+    private function getCSRFToken(string $accessToken): ?string
+    {
+        try {
+            $response = Http::withHeaders([
+                'User-Agent' => self::USER_AGENT,
+                'Authorization' => 'Bearer '.$accessToken,
+            ])->get(self::COMMONS_API_ENDPOINT, [
+                'action' => 'query',
+                'meta' => 'tokens',
+                'type' => 'csrf',
+                'format' => 'json',
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+
+                return $data['query']['tokens']['csrftoken'] ?? null;
+            }
+
+            return null;
+        } catch (\Exception $e) {
+            Log::error('Failed to get CSRF token', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Prepare filename for Commons.
+     */
+    private function prepareFilename(string $title, string $extension): string
+    {
+        // Remove invalid characters
+        $filename = preg_replace('/[^a-zA-Z0-9\s\-_.]/', '', $title);
+        $filename = trim($filename);
+
+        // Add timestamp to make it unique
+        $filename .= '_'.time();
+
+        // Add extension
+        if (! str_ends_with(strtolower($filename), '.'.strtolower($extension))) {
+            $filename .= '.'.$extension;
+        }
+
+        return $filename;
+    }
+
+    /**
+     * Prepare wikitext for the file description page.
+     */
+    private function prepareWikitext(
+        string $description,
+        string $date,
+        array $categories,
+        \App\Models\Monument $monument,
+        \App\Models\User $user
+    ): string {
+        $wikitext = "== {{int:filedesc}} ==\n";
+        $wikitext .= "{{Information\n";
+        $wikitext .= "|description={{tr|1={$description}}}\n";
+        $wikitext .= "|date={$date}\n";
+        $wikitext .= "|source={{own}}\n";
+        $wikitext .= "|author=[[User:{$user->wikimedia_username}|{$user->wikimedia_username}]]\n";
+        $wikitext .= "}}\n\n";
+
+        // Add location template if coordinates available
+        if ($monument->hasCoordinates()) {
+            $wikitext .= "{{Location|{$monument->latitude}|{$monument->longitude}}}\n\n";
+        }
+
+        // Add license
+        $wikitext .= "== {{int:license-header}} ==\n";
+        $wikitext .= "{{self|cc-by-sa-4.0}}\n\n";
+
+        // Add categories
+        if (! empty($categories)) {
+            foreach ($categories as $category) {
+                $wikitext .= "[[Category:{$category}]]\n";
+            }
+        }
+
+        return $wikitext;
     }
 }

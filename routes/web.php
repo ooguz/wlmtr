@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\WikimediaAuthController;
 use App\Http\Controllers\MonumentController;
+use App\Http\Controllers\PhotoUploadController;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route;
 
@@ -28,6 +29,11 @@ Route::prefix('auth')->name('auth.')->group(function () {
         Route::get('/profile', [WikimediaAuthController::class, 'profile'])->name('profile');
         Route::post('/profile/sync-wikimedia', [WikimediaAuthController::class, 'syncWikimediaData'])->name('profile.sync-wikimedia');
     });
+});
+
+// Photo Upload routes
+Route::middleware('auth')->prefix('photos')->name('photos.')->group(function () {
+    Route::post('/upload', [PhotoUploadController::class, 'upload'])->name('upload');
 });
 
 // API routes
