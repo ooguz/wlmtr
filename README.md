@@ -1,3 +1,5 @@
+<img width="774" height="192" alt="WLM-logo-tur-tr-horizontal svg" src="https://github.com/user-attachments/assets/3c37f735-400a-47e8-81ea-d8c0f5afd5cc" />
+
 # Wiki Loves Monuments Turkey (wlmtr)
 [![Laravel Forge Site Deployment Status](https://img.shields.io/endpoint?url=https%3A%2F%2Fforge.laravel.com%2Fsite-badges%2F47629dd3-031e-45f5-97d4-4593d1fd2c7c%3Fdate%3D1%26label%3D1%26commit%3D1&style=plastic)](https://forge.laravel.com/servers/724426/sites/2862777)
 ![GitHub License](https://img.shields.io/github/license/ooguz/wlmtr)
