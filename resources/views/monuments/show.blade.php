@@ -229,33 +229,27 @@
             <!-- Quick Upload Button -->
             @auth
             <button onclick="openQuickUploadModal()" 
-               class="block w-full mb-3 bg-blue-600 hover:bg-blue-700 text-white text-center px-6 py-3 rounded-lg shadow-md font-medium transition-colors">
+               class="block w-full mb-3 bg-green-600 hover:bg-green-700 text-white text-center px-6 py-3 rounded-lg shadow-md font-medium transition-colors">
                 <div class="flex items-center justify-center">
-                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                    </svg>
-                    Hızlı Yükle
+                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 -960 960 960"><path d="M480-480ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h320v80H200v560h560v-320h80v320q0 33-23.5 56.5T760-120H200Zm40-160h480L570-480 450-320l-90-120-120 160Zm440-320v-80h-80v-80h80v-80h80v80h80v80h-80v80h-80Z"/></svg>
+                    Hızlı fotoğraf yükle
                 </div>
             </button>
             
             <!-- Upload Wizard Button -->
             <a href="{{ $monument->upload_wizard_url }}" 
                target="_blank"
-               class="block w-full mb-6 bg-green-600 hover:bg-green-700 text-white text-center px-6 py-3 rounded-lg shadow-md font-medium transition-colors">
+               class="block w-full mb-6 bg-blue-600 hover:bg-blue-700 text-white text-center px-6 py-3 rounded-lg shadow-md font-medium transition-colors">
                 <div class="flex items-center justify-center">
-                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                    </svg>
-                    Fotoğraf Yükleme Sihirbazı
+                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 -960 960 960"><path d="m176-120-56-56 301-302-181-45 198-123-17-234 179 151 216-88-87 217 151 178-234-16-124 198-45-181-301 301Zm24-520-80-80 80-80 80 80-80 80Zm355 197 48-79 93 7-60-71 35-86-86 35-71-59 7 92-79 49 90 22 23 90Zm165 323-80-80 80-80 80 80-80 80ZM569-570Z"/></svg>
+                    Detaylı yükleme sihirbazı
                 </div>
             </a>
             @else
             <a href="{{ route('auth.login') }}" 
                class="block w-full mb-6 bg-green-600 hover:bg-green-700 text-white text-center px-6 py-3 rounded-lg shadow-md font-medium transition-colors">
                 <div class="flex items-center justify-center">
-                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                    </svg>
+                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 -960 960 960"><path d="M480-120v-80h280v-560H480v-80h280q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H480Zm-80-160-55-58 102-102H120v-80h327L345-622l55-58 200 200-200 200Z"/></svg>
                     Fotoğraf yüklemek için giriş yapın
                 </div>
             </a>
@@ -571,7 +565,7 @@
             <div class="bg-white h-full w-full md:h-auto md:rounded-lg md:max-w-4xl md:max-h-[90vh] overflow-y-auto">
                 <div class="p-4 md:p-6">
                     <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-2xl font-bold text-gray-900">Hızlı Fotoğraf Yükle</h2>
+                        <h2 class="text-2xl font-bold text-gray-900">Hızlı fotoğraf yükle</h2>
                         <button onclick="closeQuickUploadModal()" class="text-gray-400 hover:text-gray-600">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -629,7 +623,7 @@
                         <!-- License Info -->
                         <div class="bg-gray-50 p-4 rounded-md">
                             <div class="flex items-center">
-                            <img src="/by-sa.svg" class="w-5 h-5 text-gray-500 mr-2" />     
+                            <img src="/by-sa.svg" class="h-6 text-gray-500 mr-2" />     
                                 <svg class="w-5 h-5 text-gray-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
                                 </svg>
