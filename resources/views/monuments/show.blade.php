@@ -732,30 +732,44 @@
                 formData.append(`categories[${index}]`, cat);
             });
             
+            const csrfToken = document.querySelector('meta[name="csrf-token"]');
+            if (!csrfToken) {
+                throw new Error('CSRF token bulunamadı. Lütfen sayfayı yenileyin.');
+            }
+            
             const response = await fetch('{{ route("photos.upload") }}', {
                 method: 'POST',
                 headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    'X-CSRF-TOKEN': csrfToken.content,
+                    'Accept': 'application/json'
                 },
                 body: formData
             });
             
+            // Check if response is JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                console.error('Non-JSON response:', text);
+                throw new Error('Sunucu beklenmeyen bir yanıt döndürdü. Lütfen giriş yapıp tekrar deneyin.');
+            }
+            
             const result = await response.json();
             
-            if (result.success) {
+            if (response.ok && result.success) {
                 // Show success message and reload page
                 alert('Fotoğraf başarıyla yüklendi! Sayfa yeniden yükleniyor...');
                 window.location.reload();
             } else {
                 // Show error
-                errorDiv.textContent = result.message || 'Yükleme başarısız oldu.';
+                errorDiv.textContent = result.message || result.errors?.[0] || 'Yükleme başarısız oldu.';
                 errorDiv.classList.remove('hidden');
                 button.disabled = false;
                 button.textContent = 'Yükle';
             }
         } catch (error) {
             console.error('Upload error:', error);
-            errorDiv.textContent = 'Bir hata oluştu. Lütfen tekrar deneyin.';
+            errorDiv.textContent = error.message || 'Bir hata oluştu. Lütfen tekrar deneyin.';
             errorDiv.classList.remove('hidden');
             button.disabled = false;
             button.textContent = 'Yükle';

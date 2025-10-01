@@ -20,14 +20,23 @@ class PhotoUploadController extends Controller
     public function upload(PhotoUploadRequest $request): JsonResponse
     {
         try {
-            $monument = Monument::findOrFail($request->monument_id);
             $user = $request->user();
+
+            // Check if user is authenticated
+            if (! $user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Giriş yapmanız gerekiyor.',
+                ], 401);
+            }
+
+            $monument = Monument::findOrFail($request->monument_id);
 
             // Check if user has a valid access token
             if (! $user->wikimedia_access_token) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Wikimedia bağlantınız yok. Lütfen tekrar giriş yapın.',
+                    'message' => 'Wikimedia bağlantınız yok. Lütfen çıkış yapıp tekrar giriş yapın.',
                 ], 401);
             }
 
@@ -35,7 +44,7 @@ class PhotoUploadController extends Controller
             if ($user->isWikimediaTokenExpired()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Wikimedia oturumunuz sona erdi. Lütfen tekrar giriş yapın.',
+                    'message' => 'Wikimedia oturumunuz sona erdi. Lütfen çıkış yapıp tekrar giriş yapın.',
                 ], 401);
             }
 
@@ -77,14 +86,16 @@ class PhotoUploadController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Photo upload error', [
-                'user_id' => $request->user()->id,
+                'user_id' => $request->user()?->id,
                 'monument_id' => $request->monument_id,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Yükleme sırasında bir hata oluştu. Lütfen tekrar deneyin.',
+                'message' => 'Yükleme sırasında bir hata oluştu: '.$e->getMessage(),
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }

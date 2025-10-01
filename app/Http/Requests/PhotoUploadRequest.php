@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Validation\Rules\File;
 
 class PhotoUploadRequest extends FormRequest
@@ -13,6 +15,33 @@ class PhotoUploadRequest extends FormRequest
     public function authorize(): bool
     {
         return $this->user() && $this->user()->isWikimediaConnected();
+    }
+
+    /**
+     * Handle a failed authorization attempt.
+     */
+    protected function failedAuthorization(): void
+    {
+        throw new HttpResponseException(
+            response()->json([
+                'success' => false,
+                'message' => 'Bu işlemi yapmak için Wikimedia hesabınızla giriş yapmanız gerekiyor.',
+            ], 403)
+        );
+    }
+
+    /**
+     * Handle a failed validation attempt.
+     */
+    protected function failedValidation(Validator $validator): void
+    {
+        throw new HttpResponseException(
+            response()->json([
+                'success' => false,
+                'message' => 'Lütfen tüm alanları doğru şekilde doldurun.',
+                'errors' => $validator->errors(),
+            ], 422)
+        );
     }
 
     /**
