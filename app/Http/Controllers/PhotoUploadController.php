@@ -32,9 +32,11 @@ class PhotoUploadController extends Controller
 
             $monument = Monument::findOrFail($request->monument_id);
 
-            // Check if user has a valid access token
-            if (! $user->wikimedia_access_token) {
-                Log::error('User has no wikimedia access token', [
+            // Check if user has a valid access token in session
+            $accessToken = $user->getWikimediaAccessToken();
+
+            if (! $accessToken) {
+                Log::error('User has no wikimedia access token in session', [
                     'user_id' => $user->id,
                     'wikimedia_id' => $user->wikimedia_id,
                     'wikimedia_username' => $user->wikimedia_username,
@@ -54,7 +56,7 @@ class PhotoUploadController extends Controller
             if ($user->isWikimediaTokenExpired()) {
                 Log::warning('User wikimedia token expired', [
                     'user_id' => $user->id,
-                    'expires_at' => $user->wikimedia_token_expires_at,
+                    'expires_at' => $user->getWikimediaTokenExpiresAt(),
                 ]);
 
                 return response()->json([
@@ -71,6 +73,7 @@ class PhotoUploadController extends Controller
 
             // Upload to Commons
             $result = $this->commonsService->uploadPhoto(
+                accessToken: $accessToken,
                 user: $user,
                 photo: $request->file('photo'),
                 title: $request->title,

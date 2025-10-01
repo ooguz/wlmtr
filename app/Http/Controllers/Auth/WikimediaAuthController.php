@@ -91,12 +91,14 @@ class WikimediaAuthController extends Controller
                 'rights' => [],
                 'edit_count' => 0,
                 'registration_date' => null,
-                'access_token' => $socialiteUser->token,
-                'refresh_token' => $socialiteUser->refreshToken,
-                'token_expires_at' => $socialiteUser->expiresIn ? now()->addSeconds($socialiteUser->expiresIn) : null,
             ];
 
-            if (empty($userData['access_token'])) {
+            // Store tokens in session (not database for security)
+            $accessToken = $socialiteUser->token;
+            $refreshToken = $socialiteUser->refreshToken;
+            $tokenExpiresAt = $socialiteUser->expiresIn ? now()->addSeconds($socialiteUser->expiresIn) : null;
+
+            if (empty($accessToken)) {
                 Log::error('No access token received from Wikimedia OAuth', [
                     'user_data' => $userData,
                 ]);
@@ -113,7 +115,14 @@ class WikimediaAuthController extends Controller
             // Log in the user
             Auth::login($user);
 
-            // Update user's Wikimedia data
+            // Store tokens securely in session
+            session([
+                'wikimedia_access_token' => $accessToken,
+                'wikimedia_refresh_token' => $refreshToken,
+                'wikimedia_token_expires_at' => $tokenExpiresAt?->toISOString(),
+            ]);
+
+            // Update user's Wikimedia data (without tokens)
             $this->updateUserWikimediaData($user, $userData);
 
             Log::info('User logged in via Wikimedia', [
@@ -197,29 +206,16 @@ class WikimediaAuthController extends Controller
             'wikimedia_rights' => $userData['rights'] ?? $user->wikimedia_rights,
             'wikimedia_edit_count' => $userData['edit_count'] ?? $user->wikimedia_edit_count,
             'wikimedia_registration_date' => $userData['registration_date'] ?? $user->wikimedia_registration_date,
-            'wikimedia_access_token' => $userData['access_token'] ?? $user->wikimedia_access_token,
-            'wikimedia_refresh_token' => $userData['refresh_token'] ?? $user->wikimedia_refresh_token,
-            'wikimedia_token_expires_at' => $userData['token_expires_at'] ?? $user->wikimedia_token_expires_at,
             'has_commons_edit_permission' => $this->wikimediaAuth->hasCommonsEditPermission($userData['username']),
             'last_wikimedia_sync' => now(),
         ];
 
         Log::info('Updating user Wikimedia data', [
             'user_id' => $user->id,
-            'has_access_token' => ! empty($updateData['wikimedia_access_token']),
-            'token_length' => strlen($updateData['wikimedia_access_token'] ?? ''),
-            'has_refresh_token' => ! empty($updateData['wikimedia_refresh_token']),
+            'wikimedia_username' => $userData['username'],
         ]);
 
         $user->update($updateData);
-
-        // Verify the token was saved
-        $user->refresh();
-        Log::info('User data after update', [
-            'user_id' => $user->id,
-            'has_saved_token' => ! empty($user->wikimedia_access_token),
-            'saved_token_length' => strlen($user->wikimedia_access_token ?? ''),
-        ]);
     }
 
     /**

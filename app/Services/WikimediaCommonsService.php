@@ -587,6 +587,7 @@ class WikimediaCommonsService
      * Upload a photo to Wikimedia Commons.
      */
     public function uploadPhoto(
+        string $accessToken,
         \App\Models\User $user,
         \Illuminate\Http\UploadedFile $photo,
         string $title,
@@ -597,11 +598,11 @@ class WikimediaCommonsService
     ): array {
         try {
             // First, get a CSRF token
-            $csrfToken = $this->getCSRFToken($user->wikimedia_access_token);
+            $csrfToken = $this->getCSRFToken($accessToken);
             if (! $csrfToken) {
                 Log::error('Could not get CSRF token for upload', [
                     'user_id' => $user->id,
-                    'has_token' => ! empty($user->wikimedia_access_token),
+                    'has_token' => ! empty($accessToken),
                 ]);
 
                 return [
@@ -619,7 +620,7 @@ class WikimediaCommonsService
             // Upload the file
             $response = Http::withHeaders([
                 'User-Agent' => self::USER_AGENT,
-                'Authorization' => 'Bearer '.$user->wikimedia_access_token,
+                'Authorization' => 'Bearer '.$accessToken,
             ])
                 ->attach('file', file_get_contents($photo->getRealPath()), $filename)
                 ->post(self::COMMONS_API_ENDPOINT, [
@@ -776,7 +777,6 @@ class WikimediaCommonsService
 
         // Prepare description with Wikidata and WLM templates
         $descriptionText = $description;
-        
 
         $wikitext .= "|description={{tr|1={$descriptionText}}}\n";
         $wikitext .= "|date={$date}\n";

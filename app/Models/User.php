@@ -4,9 +4,9 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class User extends Authenticatable
 {
@@ -29,9 +29,6 @@ class User extends Authenticatable
         'wikimedia_rights',
         'wikimedia_edit_count',
         'wikimedia_registration_date',
-        'wikimedia_access_token',
-        'wikimedia_refresh_token',
-        'wikimedia_token_expires_at',
         'has_commons_edit_permission',
         'last_wikimedia_sync',
     ];
@@ -44,8 +41,6 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
-        'wikimedia_access_token',
-        'wikimedia_refresh_token',
     ];
 
     /**
@@ -61,7 +56,6 @@ class User extends Authenticatable
             'wikimedia_groups' => 'array',
             'wikimedia_rights' => 'array',
             'wikimedia_registration_date' => 'datetime',
-            'wikimedia_token_expires_at' => 'datetime',
             'has_commons_edit_permission' => 'boolean',
             'last_wikimedia_sync' => 'datetime',
         ];
@@ -80,7 +74,7 @@ class User extends Authenticatable
      */
     public function isWikimediaConnected(): bool
     {
-        return !empty($this->wikimedia_id) && !empty($this->wikimedia_username);
+        return ! empty($this->wikimedia_id) && ! empty($this->wikimedia_username);
     }
 
     /**
@@ -96,7 +90,7 @@ class User extends Authenticatable
      */
     public function hasPassword(): bool
     {
-        return !empty($this->password);
+        return ! empty($this->password);
     }
 
     /**
@@ -116,12 +110,39 @@ class User extends Authenticatable
     }
 
     /**
+     * Get Wikimedia access token from session.
+     */
+    public function getWikimediaAccessToken(): ?string
+    {
+        return session('wikimedia_access_token');
+    }
+
+    /**
+     * Get Wikimedia refresh token from session.
+     */
+    public function getWikimediaRefreshToken(): ?string
+    {
+        return session('wikimedia_refresh_token');
+    }
+
+    /**
+     * Get Wikimedia token expiration time from session.
+     */
+    public function getWikimediaTokenExpiresAt(): ?\Carbon\Carbon
+    {
+        $expiresAt = session('wikimedia_token_expires_at');
+
+        return $expiresAt ? \Carbon\Carbon::parse($expiresAt) : null;
+    }
+
+    /**
      * Check if user's Wikimedia token is expired.
      */
     public function isWikimediaTokenExpired(): bool
     {
-        return $this->wikimedia_token_expires_at && 
-               $this->wikimedia_token_expires_at->isPast();
+        $expiresAt = $this->getWikimediaTokenExpiresAt();
+
+        return $expiresAt && $expiresAt->isPast();
     }
 
     /**
