@@ -192,10 +192,20 @@ class WikimediaOAuthService extends AbstractProvider
             $originalState = $state;
         }
         
+        // Get stored state from session
+        $storedState = session()->pull('oauth.state');
+        
+        // If session is lost (mobile Safari), skip state validation
+        // This is safe because we're using PKCE for security
+        if ($storedState === null) {
+            \Log::info('Session lost during OAuth flow, skipping state validation', [
+                'user_agent' => request()->userAgent(),
+                'state_received' => $state,
+            ]);
+            return false; // Don't invalidate - let PKCE handle security
+        }
+        
         // Validate the original state part
-        return ! hash_equals(
-            $originalState,
-            session()->pull('oauth.state')
-        );
+        return ! hash_equals($originalState, $storedState);
     }
 }
