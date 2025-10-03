@@ -23,6 +23,24 @@ Route::prefix('auth')->name('auth.')->group(function () {
     Route::get('/wikimedia', [WikimediaAuthController::class, 'redirectToWikimedia'])->name('wikimedia.redirect');
     Route::get('/wikimedia/callback', [WikimediaAuthController::class, 'handleWikimediaCallback'])->name('wikimedia.callback');
     Route::post('/logout', [WikimediaAuthController::class, 'logout'])->name('logout');
+    
+    // Debug route for mobile Safari session testing
+    Route::get('/debug', function () {
+        return response()->json([
+            'authenticated' => auth()->check(),
+            'user_id' => auth()->id(),
+            'user' => auth()->user()?->only(['id', 'username', 'wikimedia_username']),
+            'session_id' => session()->getId(),
+            'session_data' => [
+                'wikimedia_access_token' => session()->has('wikimedia_access_token'),
+                'user_agent' => session()->get('user_agent'),
+                'oauth_started' => session()->get('oauth_started_at'),
+            ],
+            'user_agent' => request()->userAgent(),
+            'is_mobile_safari' => preg_match('/Mobile\/.*Safari/', request()->userAgent()) && 
+                                 !preg_match('/CriOS|FxiOS|EdgiOS/', request()->userAgent()),
+        ]);
+    })->name('debug');
 
     // Protected routes
     Route::middleware('auth')->group(function () {

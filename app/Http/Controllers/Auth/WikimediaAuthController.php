@@ -144,7 +144,44 @@ class WikimediaAuthController extends Controller
             Log::info('User logged in via Wikimedia', [
                 'user_id' => $user->id,
                 'wikimedia_username' => $user->wikimedia_username,
+                'session_id' => session()->getId(),
+                'is_mobile_safari' => $isMobileSafari,
             ]);
+
+            // For mobile Safari, force session save and add extra security headers
+            if ($isMobileSafari) {
+                session()->save();
+                
+                // Set session cookie with mobile Safari friendly settings
+                $response = redirect()->intended(route('monuments.map'))
+                    ->with('success', 'Successfully logged in with Wikimedia!')
+                    ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                    ->header('Pragma', 'no-cache')
+                    ->header('Expires', '0');
+                
+                // Set session cookie explicitly for mobile Safari
+                $cookie = cookie(
+                    config('session.cookie', 'laravel_session'),
+                    session()->getId(),
+                    config('session.lifetime', 120),
+                    config('session.path', '/'),
+                    config('session.domain', null),
+                    config('session.secure', true), // Force secure for mobile Safari
+                    config('session.http_only', true),
+                    false, // raw
+                    config('session.same_site', 'lax')
+                );
+                
+                $response->withCookie($cookie);
+                
+                Log::info('Mobile Safari session cookie set', [
+                    'session_id' => session()->getId(),
+                    'cookie_secure' => config('session.secure', true),
+                    'cookie_same_site' => config('session.same_site', 'lax'),
+                ]);
+                
+                return $response;
+            }
 
             return redirect()->intended(route('monuments.map'))
                 ->with('success', 'Successfully logged in with Wikimedia!');
