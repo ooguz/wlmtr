@@ -676,6 +676,9 @@
                                 İptal
                             </button>
                         </div>
+                        
+                        <!-- Hidden CSRF token field for Safari compatibility -->
+                        <input type="hidden" name="_token" value="{{ csrf_token() }}">
                     </form>
                 </div>
             </div>
@@ -762,12 +765,25 @@
                 formData.append(`categories[${index}]`, cat);
             });
             
-            // Get CSRF token with fallback
-            let csrfToken = document.querySelector('meta[name="csrf-token"]');
-            if (!csrfToken || !csrfToken.content) {
-                // Fallback: try to get from a hidden input or request a new token
-                csrfToken = { content: '' };
-                
+            // Get CSRF token with multiple fallbacks
+            let csrfToken = '';
+            
+            // Try meta tag first
+            const metaToken = document.querySelector('meta[name="csrf-token"]');
+            if (metaToken && metaToken.content) {
+                csrfToken = metaToken.content;
+            }
+            
+            // Try hidden input field
+            if (!csrfToken) {
+                const hiddenToken = document.querySelector('input[name="_token"]');
+                if (hiddenToken && hiddenToken.value) {
+                    csrfToken = hiddenToken.value;
+                }
+            }
+            
+            // Try to fetch new token if still empty
+            if (!csrfToken) {
                 try {
                     const tokenResponse = await fetch('/api/csrf-token', {
                         method: 'GET',
@@ -779,21 +795,26 @@
                     
                     if (tokenResponse.ok) {
                         const tokenData = await tokenResponse.json();
-                        csrfToken.content = tokenData.token;
+                        csrfToken = tokenData.token;
                     }
                 } catch (e) {
                     console.warn('Could not fetch CSRF token:', e);
                 }
-                
-                if (!csrfToken.content) {
-                    throw new Error('CSRF token bulunamadı. Lütfen sayfayı yenileyin.');
-                }
             }
+            
+            if (!csrfToken) {
+                throw new Error('CSRF token bulunamadı. Lütfen sayfayı yenileyin.');
+            }
+            
+            console.log('Using CSRF token:', csrfToken.substring(0, 10) + '...');
+            
+            // Also add CSRF token to FormData as a fallback
+            formData.append('_token', csrfToken);
             
             const response = await fetch('{{ route("photos.upload") }}', {
                 method: 'POST',
                 headers: {
-                    'X-CSRF-TOKEN': csrfToken.content,
+                    'X-CSRF-TOKEN': csrfToken,
                     'Accept': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
