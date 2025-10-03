@@ -793,6 +793,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             setupPhotoCarousel([photoObj]);
             photoCarousel.classList.remove('hidden');
+            attachCarouselListeners();
         } else {
             photoCarousel.classList.add('hidden');
         }
@@ -934,10 +935,20 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Add carousel navigation event listeners
-    document.addEventListener('DOMContentLoaded', function() {
-        document.getElementById('nextPhoto').addEventListener('click', nextPhoto);
-        document.getElementById('prevPhoto').addEventListener('click', prevPhoto);
-    });
+    function attachCarouselListeners() {
+        const nextBtn = document.getElementById('nextPhoto');
+        const prevBtn = document.getElementById('prevPhoto');
+        
+        if (nextBtn && !nextBtn.hasAttribute('data-listener-attached')) {
+            nextBtn.addEventListener('click', nextPhoto);
+            nextBtn.setAttribute('data-listener-attached', 'true');
+        }
+        
+        if (prevBtn && !prevBtn.hasAttribute('data-listener-attached')) {
+            prevBtn.addEventListener('click', prevPhoto);
+            prevBtn.setAttribute('data-listener-attached', 'true');
+        }
+    }
     
     // Close monument info panel
     document.getElementById('closeInfo').addEventListener('click', function() {
@@ -1016,7 +1027,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = 'image/*';
-        input.capture = 'environment';
+        
+        // Detect iOS Safari
+        const isIOSSafari = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        
+        // Only add capture for non-iOS devices to allow gallery selection on iOS
+        if (!isIOSSafari) {
+            input.capture = 'environment'; // For mobile camera on Android
+        }
         
         input.onchange = function(e) {
             const file = e.target.files[0];
@@ -1241,16 +1259,40 @@ document.addEventListener('DOMContentLoaded', function() {
                 formData.append(`categories[${index}]`, cat);
             });
             
-            const csrfToken = document.querySelector('meta[name="csrf-token"]');
-            if (!csrfToken) {
-                throw new Error('CSRF token bulunamadı. Lütfen sayfayı yenileyin.');
+            // Get CSRF token with fallback
+            let csrfToken = document.querySelector('meta[name="csrf-token"]');
+            if (!csrfToken || !csrfToken.content) {
+                // Fallback: try to get from a hidden input or request a new token
+                csrfToken = { content: '' };
+                
+                try {
+                    const tokenResponse = await fetch('/api/csrf-token', {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+                    
+                    if (tokenResponse.ok) {
+                        const tokenData = await tokenResponse.json();
+                        csrfToken.content = tokenData.token;
+                    }
+                } catch (e) {
+                    console.warn('Could not fetch CSRF token:', e);
+                }
+                
+                if (!csrfToken.content) {
+                    throw new Error('CSRF token bulunamadı. Lütfen sayfayı yenileyin.');
+                }
             }
             
             const response = await fetch('{{ route("photos.upload") }}', {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': csrfToken.content,
-                    'Accept': 'application/json'
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
                 },
                 body: formData
             });

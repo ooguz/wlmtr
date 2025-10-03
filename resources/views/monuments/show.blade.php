@@ -512,7 +512,14 @@
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = 'image/*';
-        input.capture = 'environment'; // For mobile camera
+        
+        // Detect iOS Safari
+        const isIOSSafari = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        
+        // Only add capture for non-iOS devices to allow gallery selection on iOS
+        if (!isIOSSafari) {
+            input.capture = 'environment'; // For mobile camera on Android
+        }
         
         input.onchange = function(e) {
             const file = e.target.files[0];
@@ -755,16 +762,40 @@
                 formData.append(`categories[${index}]`, cat);
             });
             
-            const csrfToken = document.querySelector('meta[name="csrf-token"]');
-            if (!csrfToken) {
-                throw new Error('CSRF token bulunamadı. Lütfen sayfayı yenileyin.');
+            // Get CSRF token with fallback
+            let csrfToken = document.querySelector('meta[name="csrf-token"]');
+            if (!csrfToken || !csrfToken.content) {
+                // Fallback: try to get from a hidden input or request a new token
+                csrfToken = { content: '' };
+                
+                try {
+                    const tokenResponse = await fetch('/api/csrf-token', {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+                    
+                    if (tokenResponse.ok) {
+                        const tokenData = await tokenResponse.json();
+                        csrfToken.content = tokenData.token;
+                    }
+                } catch (e) {
+                    console.warn('Could not fetch CSRF token:', e);
+                }
+                
+                if (!csrfToken.content) {
+                    throw new Error('CSRF token bulunamadı. Lütfen sayfayı yenileyin.');
+                }
             }
             
             const response = await fetch('{{ route("photos.upload") }}', {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': csrfToken.content,
-                    'Accept': 'application/json'
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
                 },
                 body: formData
             });

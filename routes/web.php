@@ -58,6 +58,13 @@ Route::middleware('auth')->prefix('photos')->name('photos.')->group(function () 
 
 // API routes
 Route::prefix('api')->name('api.')->group(function () {
+    // CSRF token endpoint for Safari compatibility
+    Route::get('/csrf-token', function () {
+        return response()->json([
+            'token' => csrf_token()
+        ]);
+    })->name('csrf-token');
+    
     Route::get('/monuments/map-markers', [MonumentController::class, 'apiMapMarkers'])->name('monuments.map-markers');
     Route::get('/monuments/search', [MonumentController::class, 'apiSearch'])->name('monuments.search');
     Route::get('/monuments/filters', [MonumentController::class, 'apiFilters'])->name('monuments.filters');
