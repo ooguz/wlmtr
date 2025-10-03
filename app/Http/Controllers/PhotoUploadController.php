@@ -47,11 +47,41 @@ class PhotoUploadController extends Controller
             // Check if user has a valid access token in session
             $accessToken = $user->getWikimediaAccessToken();
 
+            // For mobile Safari, try to get access token from persistent cookie if session is empty
             if (! $accessToken) {
-                Log::error('User has no wikimedia access token in session', [
+                $isMobileSafari = preg_match('/Mobile\/.*Safari/', $request->userAgent()) && 
+                                 !preg_match('/CriOS|FxiOS|EdgiOS/', $request->userAgent());
+                
+                if ($isMobileSafari && $request->hasCookie('mobile_safari_auth')) {
+                    $persistentToken = $request->cookie('mobile_safari_auth');
+                    $userData = cache()->get('mobile_safari_persistent_' . $persistentToken);
+                    
+                    if ($userData && is_array($userData) && !empty($userData['wikimedia_access_token'])) {
+                        // Restore access token to session
+                        session([
+                            'wikimedia_access_token' => $userData['wikimedia_access_token'],
+                            'wikimedia_refresh_token' => $userData['wikimedia_refresh_token'],
+                            'wikimedia_token_expires_at' => $userData['wikimedia_token_expires_at'],
+                        ]);
+                        
+                        // Try to get access token again
+                        $accessToken = $user->getWikimediaAccessToken();
+                        
+                        Log::info('Mobile Safari access token restored from persistent cookie', [
+                            'user_id' => $user->id,
+                            'has_access_token' => !empty($accessToken),
+                        ]);
+                    }
+                }
+            }
+
+            if (! $accessToken) {
+                Log::error('User has no wikimedia access token in session or persistent cookie', [
                     'user_id' => $user->id,
                     'wikimedia_id' => $user->wikimedia_id,
                     'wikimedia_username' => $user->wikimedia_username,
+                    'is_mobile_safari' => $isMobileSafari ?? false,
+                    'has_persistent_cookie' => $request->hasCookie('mobile_safari_auth'),
                 ]);
 
                 return response()->json([

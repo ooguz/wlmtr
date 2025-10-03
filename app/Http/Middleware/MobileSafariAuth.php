@@ -27,11 +27,13 @@ class MobileSafariAuth
         ]);
         
         // Check for persistent cookie first
-        if ($isMobileSafari && !Auth::check() && $request->hasCookie('mobile_safari_auth')) {
+        if ($isMobileSafari && $request->hasCookie('mobile_safari_auth')) {
             $persistentToken = $request->cookie('mobile_safari_auth');
             
             \Log::info('Checking mobile Safari persistent cookie', [
                 'persistent_token' => $persistentToken,
+                'current_auth_check' => Auth::check(),
+                'current_user_id' => Auth::id(),
             ]);
             
             $userData = cache()->get('mobile_safari_persistent_' . $persistentToken);
@@ -40,9 +42,10 @@ class MobileSafariAuth
                 $user = \App\Models\User::find($userData['user_id']);
                 
                 if ($user) {
+                    // Always login the user from persistent cookie (overwrite current session if different)
                     Auth::login($user, true);
                     
-                    // Restore Wikimedia access token to session
+                    // Always restore Wikimedia access token to session
                     if (!empty($userData['wikimedia_access_token'])) {
                         session([
                             'wikimedia_access_token' => $userData['wikimedia_access_token'],
@@ -56,6 +59,7 @@ class MobileSafariAuth
                         'persistent_token' => $persistentToken,
                         'authenticated_after' => Auth::check(),
                         'has_access_token' => !empty($userData['wikimedia_access_token']),
+                        'session_id' => session()->getId(),
                     ]);
                 }
             } else {
