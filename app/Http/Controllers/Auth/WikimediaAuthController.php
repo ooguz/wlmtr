@@ -166,18 +166,18 @@ class WikimediaAuthController extends Controller
                     config('session.lifetime', 120),
                     config('session.path', '/'),
                     config('session.domain', null),
-                    config('session.secure', true), // Force secure for mobile Safari
+                    true, // Force secure=true for mobile Safari (required for HTTPS)
                     config('session.http_only', true),
                     false, // raw
-                    config('session.same_site', 'lax')
+                    'none' // Use 'none' for SameSite to allow cross-site requests
                 );
                 
                 $response->withCookie($cookie);
                 
                 Log::info('Mobile Safari session cookie set', [
                     'session_id' => session()->getId(),
-                    'cookie_secure' => config('session.secure', true),
-                    'cookie_same_site' => config('session.same_site', 'lax'),
+                    'cookie_secure' => true,
+                    'cookie_same_site' => 'none',
                 ]);
                 
                 return $response;
