@@ -33,7 +33,7 @@
                 <div id="detailCarousel" class="overflow-hidden rounded-lg">
                     <div id="detailCarouselTrack" class="flex transition-transform duration-300 ease-in-out">
                         @foreach($displayPhotos as $photo)
-                            <div class="flex-shrink-0 w-full">
+                            <div class="flex-shrink-0 w-full relative">
                                 <img src="{{ $photo['full_resolution_url'] }}" 
                                      alt="{{ $photo['title'] ?? $monument->primary_name }}"
                                      class="w-full h-96 object-cover cursor-pointer"

@@ -22,6 +22,18 @@ class PhotoUploadController extends Controller
         try {
             $user = $request->user();
 
+            // Debug CSRF token for Safari
+            Log::info('Photo upload request debug', [
+                'user_id' => $user?->id,
+                'authenticated' => auth()->check(),
+                'csrf_token_from_header' => $request->header('X-CSRF-TOKEN'),
+                'csrf_token_from_form' => $request->input('_token'),
+                'session_id' => session()->getId(),
+                'user_agent' => $request->userAgent(),
+                'is_mobile_safari' => preg_match('/Mobile\/.*Safari/', $request->userAgent()) &&
+                                    ! preg_match('/CriOS|FxiOS|EdgiOS/', $request->userAgent()),
+            ]);
+
             // Check if user is authenticated
             if (! $user) {
                 return response()->json([

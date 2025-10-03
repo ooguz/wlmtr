@@ -769,6 +769,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (monument.photos && monument.photos.length > 0) {
             setupPhotoCarousel(monument.photos);
             photoCarousel.classList.remove('hidden');
+            attachCarouselListeners();
         } else if (monument.featured_photo) {
             let fp = monument.featured_photo;
             let photoObj;
@@ -901,6 +902,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Next photo
     function nextPhoto() {
+        console.log('nextPhoto called');
         const carouselTrack = document.getElementById('carouselTrack');
         if (carouselTrack.photos && carouselTrack.currentIndex < carouselTrack.photos.length - 1) {
             goToSlide(carouselTrack.currentIndex + 1);
@@ -909,6 +911,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Previous photo
     function prevPhoto() {
+        console.log('prevPhoto called');
         const carouselTrack = document.getElementById('carouselTrack');
         if (carouselTrack.photos && carouselTrack.currentIndex > 0) {
             goToSlide(carouselTrack.currentIndex - 1);
@@ -939,14 +942,18 @@ document.addEventListener('DOMContentLoaded', function() {
         const nextBtn = document.getElementById('nextPhoto');
         const prevBtn = document.getElementById('prevPhoto');
         
+        console.log('Attaching carousel listeners:', { nextBtn, prevBtn });
+        
         if (nextBtn && !nextBtn.hasAttribute('data-listener-attached')) {
             nextBtn.addEventListener('click', nextPhoto);
             nextBtn.setAttribute('data-listener-attached', 'true');
+            console.log('Next button listener attached');
         }
         
         if (prevBtn && !prevBtn.hasAttribute('data-listener-attached')) {
             prevBtn.addEventListener('click', prevPhoto);
             prevBtn.setAttribute('data-listener-attached', 'true');
+            console.log('Prev button listener attached');
         }
     }
     

@@ -708,6 +708,8 @@ class WikimediaCommonsService
                 // Handle different warning types
                 if (isset($warnings['duplicate'])) {
                     $errorMessage = 'Bu dosya zaten Commons\'da mevcut.';
+                } elseif (isset($warnings['duplicate-archive'])) {
+                    $errorMessage = 'Bu dosya adı zaten kullanılıyor. Lütfen farklı bir dosya adı deneyin.';
                 } elseif (isset($warnings['exists'])) {
                     $errorMessage = 'Bu isimde bir dosya zaten mevcut.';
                 } elseif (isset($warnings['badfilename'])) {
