@@ -39,8 +39,10 @@ Route::prefix('auth')->name('auth.')->group(function () {
             'user_agent' => request()->userAgent(),
             'is_mobile_safari' => preg_match('/Mobile\/.*Safari/', request()->userAgent()) && 
                                  !preg_match('/CriOS|FxiOS|EdgiOS/', request()->userAgent()),
+            'auth_token_present' => request()->has('auth_token'),
+            'auth_token' => request()->input('auth_token'),
         ]);
-    })->name('debug');
+    })->middleware('mobile.safari.auth')->name('debug');
 
     // Protected routes
     Route::middleware('auth')->group(function () {
