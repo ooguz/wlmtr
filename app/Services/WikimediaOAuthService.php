@@ -106,11 +106,10 @@ class WikimediaOAuthService extends AbstractProvider
         $verifier = rtrim(strtr(base64_encode(random_bytes(64)), '+/', '-_'), '=');
         session()->put('wikimedia_pkce_verifier', $verifier);
         
-        // For mobile Safari, also encode verifier in state to prevent session loss
+        // For mobile Safari, append verifier to state parameter to prevent session loss
         if ($state) {
-            $stateData = json_decode(base64_decode($state), true) ?? [];
-            $stateData['pkce_verifier'] = $verifier;
-            $fields['state'] = base64_encode(json_encode($stateData));
+            // Append verifier to state with a separator that won't break base64
+            $fields['state'] = $state . '.' . $verifier;
         }
         
         $challenge = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
@@ -135,14 +134,22 @@ class WikimediaOAuthService extends AbstractProvider
         
         // Fallback: extract verifier from state parameter if session was lost (mobile Safari)
         if (empty($verifier) && request()->has('state')) {
-            $stateData = json_decode(base64_decode(request()->input('state')), true);
-            $verifier = $stateData['pkce_verifier'] ?? null;
+            $state = request()->input('state');
             
-            \Log::info('PKCE verifier recovered from state parameter', [
-                'has_state' => request()->has('state'),
-                'has_verifier' => !empty($verifier),
-                'user_agent' => request()->userAgent(),
-            ]);
+            // Check if state contains our appended verifier (format: original_state.verifier)
+            if (strpos($state, '.') !== false) {
+                $parts = explode('.', $state, 2);
+                if (count($parts) === 2) {
+                    $verifier = $parts[1];
+                    
+                    \Log::info('PKCE verifier recovered from state parameter', [
+                        'has_state' => request()->has('state'),
+                        'has_verifier' => !empty($verifier),
+                        'user_agent' => request()->userAgent(),
+                        'state_length' => strlen($state),
+                    ]);
+                }
+            }
         }
         
         if (empty($verifier)) {
@@ -164,5 +171,31 @@ class WikimediaOAuthService extends AbstractProvider
     protected function getHttpClient()
     {
         return parent::getHttpClient();
+    }
+
+    /**
+     * Override state validation to handle our custom state format with PKCE verifier.
+     */
+    protected function hasInvalidState()
+    {
+        $state = request()->input('state');
+        
+        if (empty($state)) {
+            return true;
+        }
+        
+        // Extract original state from our custom format (original_state.verifier)
+        if (strpos($state, '.') !== false) {
+            $parts = explode('.', $state, 2);
+            $originalState = $parts[0];
+        } else {
+            $originalState = $state;
+        }
+        
+        // Validate the original state part
+        return ! hash_equals(
+            $originalState,
+            session()->pull('oauth.state')
+        );
     }
 }
