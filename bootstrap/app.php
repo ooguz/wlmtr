@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'basic.auth.horizon' => BasicAuthHorizon::class,
+            'mobile.safari.auth' => \App\Http\Middleware\MobileSafariAuth::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

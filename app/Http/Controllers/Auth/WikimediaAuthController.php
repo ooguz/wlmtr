@@ -148,39 +148,26 @@ class WikimediaAuthController extends Controller
                 'is_mobile_safari' => $isMobileSafari,
             ]);
 
-            // For mobile Safari, force session save and add extra security headers
+            // For mobile Safari, use a different approach - pass auth token in URL
             if ($isMobileSafari) {
-                session()->save();
+                // Generate a temporary auth token for mobile Safari
+                $authToken = hash('sha256', $user->id . time() . random_bytes(16));
                 
-                // Set session cookie with mobile Safari friendly settings
-                $response = redirect()->intended(route('monuments.map'))
+                // Store the auth token temporarily (5 minutes)
+                cache()->put('mobile_safari_auth_' . $authToken, $user->id, 300);
+                
+                Log::info('Mobile Safari auth token generated', [
+                    'user_id' => $user->id,
+                    'auth_token' => $authToken,
+                    'session_id' => session()->getId(),
+                ]);
+                
+                // Redirect with auth token for mobile Safari
+                return redirect()->to(route('monuments.map') . '?auth_token=' . $authToken)
                     ->with('success', 'Successfully logged in with Wikimedia!')
                     ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
                     ->header('Pragma', 'no-cache')
                     ->header('Expires', '0');
-                
-                // Set session cookie explicitly for mobile Safari
-                $cookie = cookie(
-                    config('session.cookie', 'laravel_session'),
-                    session()->getId(),
-                    config('session.lifetime', 120),
-                    config('session.path', '/'),
-                    config('session.domain', null),
-                    true, // Force secure=true for mobile Safari (required for HTTPS)
-                    config('session.http_only', true),
-                    false, // raw
-                    'none' // Use 'none' for SameSite to allow cross-site requests
-                );
-                
-                $response->withCookie($cookie);
-                
-                Log::info('Mobile Safari session cookie set', [
-                    'session_id' => session()->getId(),
-                    'cookie_secure' => true,
-                    'cookie_same_site' => 'none',
-                ]);
-                
-                return $response;
             }
 
             return redirect()->intended(route('monuments.map'))

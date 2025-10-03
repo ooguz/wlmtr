@@ -11,7 +11,7 @@ Route::get('/', function () {
 })->name('home');
 
 // Monument routes
-Route::prefix('monuments')->name('monuments.')->group(function () {
+Route::prefix('monuments')->name('monuments.')->middleware('mobile.safari.auth')->group(function () {
     Route::get('/map', [MonumentController::class, 'map'])->name('map');
     Route::get('/list', [MonumentController::class, 'list'])->name('list');
     Route::get('/{monument}', [MonumentController::class, 'show'])->name('show');
