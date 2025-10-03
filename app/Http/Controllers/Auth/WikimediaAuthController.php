@@ -153,12 +153,20 @@ class WikimediaAuthController extends Controller
                 // Generate a temporary auth token for mobile Safari
                 $authToken = hash('sha256', $user->id . time() . random_bytes(16));
                 
-                // Store the auth token temporarily (5 minutes)
-                cache()->put('mobile_safari_auth_' . $authToken, $user->id, 300);
+                // Store the auth token temporarily (5 minutes) with user data and access token
+                $userData = [
+                    'user_id' => $user->id,
+                    'wikimedia_access_token' => session('wikimedia_access_token'),
+                    'wikimedia_refresh_token' => session('wikimedia_refresh_token'),
+                    'wikimedia_token_expires_at' => session('wikimedia_token_expires_at'),
+                ];
                 
-                Log::info('Mobile Safari auth token generated', [
+                cache()->put('mobile_safari_auth_' . $authToken, $userData, 300);
+                
+                Log::info('Mobile Safari auth token generated with access token', [
                     'user_id' => $user->id,
                     'auth_token' => $authToken,
+                    'has_access_token' => !empty($userData['wikimedia_access_token']),
                     'session_id' => session()->getId(),
                 ]);
                 

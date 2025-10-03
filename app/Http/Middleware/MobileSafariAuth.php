@@ -34,18 +34,28 @@ class MobileSafariAuth
                 'persistent_token' => $persistentToken,
             ]);
             
-            $userId = cache()->get('mobile_safari_persistent_' . $persistentToken);
+            $userData = cache()->get('mobile_safari_persistent_' . $persistentToken);
             
-            if ($userId) {
-                $user = \App\Models\User::find($userId);
+            if ($userData && is_array($userData)) {
+                $user = \App\Models\User::find($userData['user_id']);
                 
                 if ($user) {
                     Auth::login($user, true);
                     
-                    \Log::info('Mobile Safari user logged in via persistent cookie', [
+                    // Restore Wikimedia access token to session
+                    if (!empty($userData['wikimedia_access_token'])) {
+                        session([
+                            'wikimedia_access_token' => $userData['wikimedia_access_token'],
+                            'wikimedia_refresh_token' => $userData['wikimedia_refresh_token'],
+                            'wikimedia_token_expires_at' => $userData['wikimedia_token_expires_at'],
+                        ]);
+                    }
+                    
+                    \Log::info('Mobile Safari user logged in via persistent cookie with access token restored', [
                         'user_id' => $user->id,
                         'persistent_token' => $persistentToken,
                         'authenticated_after' => Auth::check(),
+                        'has_access_token' => !empty($userData['wikimedia_access_token']),
                     ]);
                 }
             } else {
@@ -72,43 +82,79 @@ class MobileSafariAuth
             ]);
             
             if ($userId) {
-                // Find the user and log them in
-                $user = \App\Models\User::find($userId);
+                // Check if we have user data with access token
+                $userData = cache()->get('mobile_safari_auth_' . $authToken);
                 
-                if ($user) {
-                    Auth::login($user, true); // Remember the user
+                if ($userData && is_array($userData)) {
+                    // Find the user and log them in
+                    $user = \App\Models\User::find($userData['user_id']);
                     
-                    // For mobile Safari, also store a persistent auth token in cache
-                    $persistentToken = hash('sha256', $user->id . time() . random_bytes(16));
-                    cache()->put('mobile_safari_persistent_' . $persistentToken, $user->id, 86400); // 24 hours
+                    if ($user) {
+                        Auth::login($user, true); // Remember the user
+                        
+                        // Restore Wikimedia access token to session
+                        if (!empty($userData['wikimedia_access_token'])) {
+                            session([
+                                'wikimedia_access_token' => $userData['wikimedia_access_token'],
+                                'wikimedia_refresh_token' => $userData['wikimedia_refresh_token'],
+                                'wikimedia_token_expires_at' => $userData['wikimedia_token_expires_at'],
+                            ]);
+                        }
+                        
+                        // For mobile Safari, also store a persistent auth token in cache
+                        $persistentToken = hash('sha256', $user->id . time() . random_bytes(16));
+                        $persistentData = [
+                            'user_id' => $user->id,
+                            'wikimedia_access_token' => $userData['wikimedia_access_token'],
+                            'wikimedia_refresh_token' => $userData['wikimedia_refresh_token'],
+                            'wikimedia_token_expires_at' => $userData['wikimedia_token_expires_at'],
+                        ];
+                        cache()->put('mobile_safari_persistent_' . $persistentToken, $persistentData, 86400); // 24 hours
+                        
+                        // Clear the one-time auth token after use
+                        cache()->forget('mobile_safari_auth_' . $authToken);
+                        
+                        \Log::info('Mobile Safari user logged in via auth token with access token restored', [
+                            'user_id' => $user->id,
+                            'auth_token' => $authToken,
+                            'persistent_token' => $persistentToken,
+                            'authenticated_after' => Auth::check(),
+                            'has_access_token' => !empty($userData['wikimedia_access_token']),
+                        ]);
+                        
+                        // Redirect without the auth token but with a persistent token cookie
+                        $response = redirect()->to($request->url());
+                        
+                        // Set a persistent cookie for mobile Safari
+                        $cookie = cookie(
+                            'mobile_safari_auth',
+                            $persistentToken,
+                            86400, // 24 hours
+                            '/',
+                            null,
+                            true, // secure
+                            true, // httpOnly
+                            false, // raw
+                            'none' // sameSite
+                        );
+                        
+                        return $response->withCookie($cookie);
+                    }
+                } else {
+                    // Fallback for old format (just user ID)
+                    $user = \App\Models\User::find($userId);
                     
-                    // Clear the one-time auth token after use
-                    cache()->forget('mobile_safari_auth_' . $authToken);
-                    
-                    \Log::info('Mobile Safari user logged in via auth token', [
-                        'user_id' => $user->id,
-                        'auth_token' => $authToken,
-                        'persistent_token' => $persistentToken,
-                        'authenticated_after' => Auth::check(),
-                    ]);
-                    
-                    // Redirect without the auth token but with a persistent token cookie
-                    $response = redirect()->to($request->url());
-                    
-                    // Set a persistent cookie for mobile Safari
-                    $cookie = cookie(
-                        'mobile_safari_auth',
-                        $persistentToken,
-                        86400, // 24 hours
-                        '/',
-                        null,
-                        true, // secure
-                        true, // httpOnly
-                        false, // raw
-                        'none' // sameSite
-                    );
-                    
-                    return $response->withCookie($cookie);
+                    if ($user) {
+                        Auth::login($user, true);
+                        
+                        \Log::info('Mobile Safari user logged in via auth token (legacy format)', [
+                            'user_id' => $user->id,
+                            'auth_token' => $authToken,
+                            'authenticated_after' => Auth::check(),
+                        ]);
+                        
+                        return redirect()->to($request->url());
+                    }
                 }
             } else {
                 \Log::warning('Invalid or expired mobile Safari auth token', [
