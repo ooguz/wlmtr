@@ -1276,7 +1276,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     window.location.reload();
                 }, 3000);
             } else {
-                errorMessage.textContent = result.message || result.errors?.[0] || 'Yükleme başarısız oldu.';
+                // Show error
+                let errorText = result.message || 'Yükleme başarısız oldu.';
+                
+                // If there are validation errors, show them
+                if (result.errors) {
+                    const errorList = Object.values(result.errors).flat();
+                    errorText = errorList.join(' ');
+                }
+                
+                // Add details if in debug mode
+                if (result.details) {
+                    console.error('Upload error details:', result.details);
+                }
+                
+                errorMessage.textContent = errorText;
                 errorDiv.classList.remove('hidden');
                 button.disabled = false;
                 button.textContent = 'Yükle';

@@ -102,9 +102,17 @@ class WikimediaOAuthService extends AbstractProvider
         // Force Meta-Wiki login UI language to Turkish
         $fields['uselang'] = 'tr';
 
-        // Add PKCE (S256)
+        // Add PKCE (S256) - store verifier in state parameter for mobile Safari compatibility
         $verifier = rtrim(strtr(base64_encode(random_bytes(64)), '+/', '-_'), '=');
         session()->put('wikimedia_pkce_verifier', $verifier);
+        
+        // For mobile Safari, also encode verifier in state to prevent session loss
+        if ($state) {
+            $stateData = json_decode(base64_decode($state), true) ?? [];
+            $stateData['pkce_verifier'] = $verifier;
+            $fields['state'] = base64_encode(json_encode($stateData));
+        }
+        
         $challenge = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
 
         $fields['code_challenge'] = $challenge;
@@ -121,7 +129,31 @@ class WikimediaOAuthService extends AbstractProvider
         $fields = parent::getTokenFields($code);
 
         $fields['grant_type'] = 'authorization_code';
-        $fields['code_verifier'] = session()->pull('wikimedia_pkce_verifier');
+        
+        // Try to get PKCE verifier from session first, then from state parameter for mobile Safari
+        $verifier = session()->pull('wikimedia_pkce_verifier');
+        
+        // Fallback: extract verifier from state parameter if session was lost (mobile Safari)
+        if (empty($verifier) && request()->has('state')) {
+            $stateData = json_decode(base64_decode(request()->input('state')), true);
+            $verifier = $stateData['pkce_verifier'] ?? null;
+            
+            \Log::info('PKCE verifier recovered from state parameter', [
+                'has_state' => request()->has('state'),
+                'has_verifier' => !empty($verifier),
+                'user_agent' => request()->userAgent(),
+            ]);
+        }
+        
+        if (empty($verifier)) {
+            \Log::error('PKCE verifier not found in session or state', [
+                'session_has_verifier' => session()->has('wikimedia_pkce_verifier'),
+                'has_state' => request()->has('state'),
+                'user_agent' => request()->userAgent(),
+            ]);
+        }
+        
+        $fields['code_verifier'] = $verifier;
 
         return $fields;
     }

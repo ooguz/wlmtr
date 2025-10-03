@@ -39,6 +39,10 @@ class WikimediaAuthController extends Controller
                 session()->put('url.intended', $request->input('return_url'));
             }
 
+            // Store user agent for mobile Safari detection
+            session()->put('user_agent', $request->userAgent());
+            session()->put('oauth_started_at', now()->timestamp);
+
             return Socialite::driver('wikimedia')
                 ->with([
                     // Hint login UI language explicitly
@@ -50,6 +54,7 @@ class WikimediaAuthController extends Controller
         } catch (\Exception $e) {
             Log::error('Wikimedia OAuth redirect error', [
                 'error' => $e->getMessage(),
+                'user_agent' => $request->userAgent(),
             ]);
 
             return redirect()->route('auth.login')
@@ -63,6 +68,17 @@ class WikimediaAuthController extends Controller
     public function handleWikimediaCallback(Request $request): RedirectResponse
     {
         try {
+            // Check for mobile Safari and handle accordingly
+            $userAgent = session()->get('user_agent', $request->userAgent());
+            $isMobileSafari = $this->isMobileSafari($userAgent);
+            
+            if ($isMobileSafari) {
+                Log::info('Mobile Safari OAuth callback detected', [
+                    'user_agent' => $userAgent,
+                    'oauth_started' => session()->get('oauth_started_at'),
+                ]);
+            }
+
             $socialiteUser = Socialite::driver('wikimedia')->user();
 
             Log::info('Wikimedia OAuth callback - Socialite user received', [
@@ -136,7 +152,15 @@ class WikimediaAuthController extends Controller
         } catch (\Exception $e) {
             Log::error('Wikimedia OAuth callback error', [
                 'error' => $e->getMessage(),
+                'error_class' => get_class($e),
+                'error_code' => $e->getCode(),
+                'error_file' => $e->getFile(),
+                'error_line' => $e->getLine(),
                 'callback_data' => $request->all(),
+                'user_agent' => $request->userAgent(),
+                'has_state' => $request->has('state'),
+                'has_code' => $request->has('code'),
+                'session_id' => session()->getId(),
             ]);
 
             return redirect()->route('auth.login')
@@ -156,6 +180,15 @@ class WikimediaAuthController extends Controller
 
         return redirect()->route('monuments.map')
             ->with('success', 'Successfully logged out.');
+    }
+
+    /**
+     * Check if the user agent is mobile Safari.
+     */
+    private function isMobileSafari(string $userAgent): bool
+    {
+        return preg_match('/Mobile\/.*Safari/', $userAgent) && 
+               !preg_match('/CriOS|FxiOS|EdgiOS/', $userAgent);
     }
 
     /**
