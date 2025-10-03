@@ -465,6 +465,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize clear button visibility on load
     updateClearButtonVisibility();
     
+    // Update marker sizes on window resize (orientation change, etc.)
+    window.addEventListener('resize', function() {
+        // Debounce resize events
+        clearTimeout(window.resizeTimeout);
+        window.resizeTimeout = setTimeout(updateMarkerSizes, 250);
+    });
+    
     // Location functionality (shared)
     function locateUserAndFilter() {
         if (!navigator.geolocation) {
@@ -535,6 +542,35 @@ document.addEventListener('DOMContentLoaded', function() {
         return R * c;
     }
     
+    // Update marker sizes based on current zoom level and device type
+    function updateMarkerSizes() {
+        const zoom = map.getZoom();
+        const isMobile = window.innerWidth < 768;
+        
+        // Base size calculation
+        let baseRadius = 6;
+        if (isMobile) {
+            baseRadius = 8; // Larger base size for mobile
+        }
+        
+        // Scale with zoom level for better visibility
+        const zoomMultiplier = Math.max(0.8, Math.min(1.5, (zoom - 6) * 0.1 + 1));
+        const finalRadius = Math.round(baseRadius * zoomMultiplier);
+        const finalWeight = isMobile ? 3 : 2;
+        
+        // Update all markers in the cluster
+        allMarkers.forEach(marker => {
+            if (marker.setRadius) {
+                marker.setRadius(finalRadius);
+            }
+            if (marker.setStyle) {
+                marker.setStyle({
+                    weight: finalWeight
+                });
+            }
+        });
+    }
+    
     // Build API URL for Turkey-wide markers (optionally with filters)
     function buildTurkeyMarkersUrl() {
         const zoom = map.getZoom();
@@ -564,6 +600,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (isFiltered()) {
             scheduleFetchMarkers();
         }
+        // Update marker sizes on zoom change for better visibility
+        updateMarkerSizes();
     });
 
     function fetchTurkeyWideMarkers() {
@@ -590,11 +628,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 markerCluster.clearLayers();
 
                 (data || []).forEach(item => {
+                    // Calculate responsive marker size based on zoom level and device type
+                    const zoom = map.getZoom();
+                    const isMobile = window.innerWidth < 768;
+                    
+                    // Base size calculation
+                    let baseRadius = 6;
+                    if (isMobile) {
+                        baseRadius = 8; // Larger base size for mobile
+                    }
+                    
+                    // Scale with zoom level for better visibility
+                    const zoomMultiplier = Math.max(0.8, Math.min(1.5, (zoom - 6) * 0.1 + 1));
+                    const finalRadius = Math.round(baseRadius * zoomMultiplier);
+                    
                     const marker = L.circleMarker([item.coordinates.lat, item.coordinates.lng], {
-                        radius: 6,
+                        radius: finalRadius,
                         fillColor: '#3B82F6',
                         color: '#1E40AF',
-                        weight: 2,
+                        weight: isMobile ? 3 : 2, // Thicker border on mobile
                         opacity: 1,
                         fillOpacity: 0.8
                     });
@@ -1308,8 +1360,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 successMessage.textContent = result.message || 'Fotoğraf başarıyla yüklendi!';
                 successDiv.classList.remove('hidden');
                 
+                // Debug the response data
+                console.log('Upload success response:', result);
+                
+                // Open Commons page in new tab if descriptionurl is available
                 if (result.data?.descriptionurl) {
+                    console.log('Opening Commons page:', result.data.descriptionurl);
                     window.open(result.data.descriptionurl, '_blank');
+                } else {
+                    console.log('No descriptionurl found in response data:', result.data);
+                    // Fallback: try to construct the Commons URL from filename
+                    if (result.data?.filename) {
+                        const commonsUrl = `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(result.data.filename)}`;
+                        console.log('Constructed Commons URL:', commonsUrl);
+                        window.open(commonsUrl, '_blank');
+                    }
                 }
                 
                 setTimeout(() => {

@@ -806,9 +806,21 @@
                 successMessage.textContent = result.message || 'Fotoğraf başarıyla yüklendi!';
                 successDiv.classList.remove('hidden');
                 
+                // Debug the response data
+                console.log('Upload success response:', result);
+                
                 // Open Commons page in new tab if descriptionurl is available
                 if (result.data?.descriptionurl) {
+                    console.log('Opening Commons page:', result.data.descriptionurl);
                     window.open(result.data.descriptionurl, '_blank');
+                } else {
+                    console.log('No descriptionurl found in response data:', result.data);
+                    // Fallback: try to construct the Commons URL from filename
+                    if (result.data?.filename) {
+                        const commonsUrl = `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(result.data.filename)}`;
+                        console.log('Constructed Commons URL:', commonsUrl);
+                        window.open(commonsUrl, '_blank');
+                    }
                 }
                 
                 // Reload page after 3 seconds
