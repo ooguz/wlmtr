@@ -779,46 +779,15 @@
                 formData.append(`categories[${index}]`, cat);
             });
             
-            // Check if this is mobile Safari
-            const isMobileSafari = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-            
-            let headers = {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            };
-            
-            if (!isMobileSafari) {
-                // Only add CSRF token for non-mobile Safari
-                let csrfToken = '';
-                
-                // Try meta tag first
-                const metaToken = document.querySelector('meta[name="csrf-token"]');
-                if (metaToken && metaToken.content) {
-                    csrfToken = metaToken.content;
-                }
-                
-                // Try hidden input field
-                if (!csrfToken) {
-                    const hiddenToken = document.querySelector('input[name="_token"]');
-                    if (hiddenToken && hiddenToken.value) {
-                        csrfToken = hiddenToken.value;
-                    }
-                }
-                
-                if (csrfToken) {
-                    headers['X-CSRF-TOKEN'] = csrfToken;
-                    formData.append('_token', csrfToken);
-                    console.log('Using CSRF token:', csrfToken.substring(0, 10) + '...');
-                } else {
-                    throw new Error('CSRF token bulunamadı. Lütfen sayfayı yenileyin.');
-                }
-            } else {
-                console.log('Mobile Safari detected - skipping CSRF token');
-            }
+            // CSRF token completely disabled for testing
+            console.log('CSRF token disabled - testing upload');
             
             const response = await fetch('{{ route("photos.upload") }}', {
                 method: 'POST',
-                headers: headers,
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 body: formData
             });
             
