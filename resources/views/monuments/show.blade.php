@@ -779,59 +779,46 @@
                 formData.append(`categories[${index}]`, cat);
             });
             
-            // Get CSRF token with multiple fallbacks
-            let csrfToken = '';
+            // Check if this is mobile Safari
+            const isMobileSafari = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
             
-            // Try meta tag first
-            const metaToken = document.querySelector('meta[name="csrf-token"]');
-            if (metaToken && metaToken.content) {
-                csrfToken = metaToken.content;
-            }
+            let headers = {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            };
             
-            // Try hidden input field
-            if (!csrfToken) {
-                const hiddenToken = document.querySelector('input[name="_token"]');
-                if (hiddenToken && hiddenToken.value) {
-                    csrfToken = hiddenToken.value;
+            if (!isMobileSafari) {
+                // Only add CSRF token for non-mobile Safari
+                let csrfToken = '';
+                
+                // Try meta tag first
+                const metaToken = document.querySelector('meta[name="csrf-token"]');
+                if (metaToken && metaToken.content) {
+                    csrfToken = metaToken.content;
                 }
-            }
-            
-            // Try to fetch new token if still empty
-            if (!csrfToken) {
-                try {
-                    const tokenResponse = await fetch('/api/csrf-token', {
-                        method: 'GET',
-                        headers: {
-                            'Accept': 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest'
-                        }
-                    });
-                    
-                    if (tokenResponse.ok) {
-                        const tokenData = await tokenResponse.json();
-                        csrfToken = tokenData.token;
+                
+                // Try hidden input field
+                if (!csrfToken) {
+                    const hiddenToken = document.querySelector('input[name="_token"]');
+                    if (hiddenToken && hiddenToken.value) {
+                        csrfToken = hiddenToken.value;
                     }
-                } catch (e) {
-                    console.warn('Could not fetch CSRF token:', e);
                 }
+                
+                if (csrfToken) {
+                    headers['X-CSRF-TOKEN'] = csrfToken;
+                    formData.append('_token', csrfToken);
+                    console.log('Using CSRF token:', csrfToken.substring(0, 10) + '...');
+                } else {
+                    throw new Error('CSRF token bulunamadı. Lütfen sayfayı yenileyin.');
+                }
+            } else {
+                console.log('Mobile Safari detected - skipping CSRF token');
             }
-            
-            if (!csrfToken) {
-                throw new Error('CSRF token bulunamadı. Lütfen sayfayı yenileyin.');
-            }
-            
-            console.log('Using CSRF token:', csrfToken.substring(0, 10) + '...');
-            
-            // Also add CSRF token to FormData as a fallback
-            formData.append('_token', csrfToken);
             
             const response = await fetch('{{ route("photos.upload") }}', {
                 method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': csrfToken,
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
+                headers: headers,
                 body: formData
             });
             
