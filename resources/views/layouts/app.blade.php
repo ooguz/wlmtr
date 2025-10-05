@@ -220,7 +220,7 @@
                 <div class="text-center text-sm text-gray-500">
                     <p>Viki Anıtları Seviyor Türkiye - Türkiye'deki anıtları keşfedin ve fotoğraflayın</p>
                     <p class="mt-2">
-                        <a href="https://commons.wikimedia.org/wiki/Category:Wiki_Loves_Monuments_Turkey" 
+                        <a href="https://commons.wikimedia.org/wiki/Category:Images_from_Wiki_Loves_Monuments_2025_in_Turkey" 
                            class="text-blue-600 hover:text-blue-800" target="_blank">
                             Wikimedia Commons
                         </a> | 
