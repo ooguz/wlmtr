@@ -1,8 +1,5 @@
 <?php
 
-use App\Jobs\SyncAllMonumentData;
-use App\Jobs\SyncMonumentDescriptions;
-use App\Jobs\SyncMonumentLocations;
 use App\Jobs\SyncMonumentsUnifiedJob;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -15,23 +12,23 @@ Artisan::command('inspire', function () {
 // Schedule monument data synchronization jobs
 /*
 Schedule::job(new SyncAllMonumentData())
-    ->hourly()
-    ->withoutOverlapping()
-    ->name('sync-all-monument-data');
+->hourly()
+->withoutOverlapping()
+->name('sync-all-monument-data');
 
 Schedule::job(new SyncMonumentLocations())
-    ->everyTwoHours()
-    ->withoutOverlapping()
-    ->name('sync-monument-locations');
+->everyTwoHours()
+->withoutOverlapping()
+->name('sync-monument-locations');
 
 Schedule::job(new SyncMonumentDescriptions())
-    ->everyThreeHours()
-    ->withoutOverlapping()
-    ->name('sync-monument-descriptions');
-*/
+->everyThreeHours()
+->withoutOverlapping()
+->name('sync-monument-descriptions');
+ */
 
 Schedule::job(new SyncMonumentsUnifiedJob)
-    ->everyTenMinutes()
+    ->daily()
     ->withoutOverlapping()
     ->onOneServer()
     ->name('sync-monuments-unified');
