@@ -45,3 +45,17 @@ Schedule::command('horizon:snapshot')
     ->everyFiveMinutes()
     ->onOneServer()
     ->name('horizon-snapshot');
+
+// Sync photos from commons
+Schedule::command('monuments:sync-photos')
+    ->everyTenMinutes()
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->name('sync-photos');
+
+// Update metadata from commons
+Schedule::command('photos:update-metadata')
+    ->everyThirtyMinutes()
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->name('photos-update-metadata');
