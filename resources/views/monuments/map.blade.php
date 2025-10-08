@@ -300,10 +300,17 @@ data-auth="false"
 @push('scripts')
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize map
+            // Get map state from URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const lat = parseFloat(urlParams.get('lat')) || 39.0;
+            const lng = parseFloat(urlParams.get('lng')) || 34.5;
+            const zoom = parseInt(urlParams.get('zoom')) || 6;
+            const selectedMonumentId = urlParams.get('selected');
+            
+            // Initialize map with URL parameters or defaults
             const map = L.map('map', {
                 zoomControl: false
-            }).setView([39.0, 34.5], 6); // Wider center to include east/west margins
+            }).setView([lat, lng], zoom);
 
             // Add OpenStreetMap tiles
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -322,6 +329,25 @@ data-auth="false"
             let allMarkers = [];
             let categoryIdToQid = {};
             let currentInfoWindow = null;
+
+            // Function to update URL with current map state
+            function updateMapStateInURL(monumentId = null) {
+                const center = map.getCenter();
+                const zoom = map.getZoom();
+                const url = new URL(window.location);
+                url.searchParams.set('lat', center.lat.toFixed(6));
+                url.searchParams.set('lng', center.lng.toFixed(6));
+                url.searchParams.set('zoom', zoom);
+                
+                if (monumentId) {
+                    url.searchParams.set('selected', monumentId);
+                } else {
+                    url.searchParams.delete('selected');
+                }
+                
+                // Update URL without page reload
+                window.history.replaceState({}, '', url);
+            }
 
             // Mobile search panel toggle
             const searchPanel = document.getElementById('searchPanel');
@@ -634,6 +660,13 @@ data-auth="false"
                 }
                 // Update marker sizes on zoom change for better visibility
                 updateMarkerSizes();
+                // Update URL with new map state
+                updateMapStateInURL();
+            });
+
+            // Update URL when map is moved
+            map.on('moveend', function() {
+                updateMapStateInURL();
             });
 
             function fetchTurkeyWideMarkers() {
@@ -690,6 +723,9 @@ data-auth="false"
 
                             // Click event with lazy detail fetch when needed
                             marker.on('click', function() {
+                                // Update URL with selected monument
+                                updateMapStateInURL(item.id);
+                                
                                 // Always fetch full details to ensure freshest data in panel
                                 if (item && item.id) {
                                     fetch(`/api/monuments/${item.id}`)
@@ -712,6 +748,18 @@ data-auth="false"
 
                         // Respect current filters when adding to cluster
                         applyFilters();
+
+                        // If there's a selected monument, highlight it
+                        if (selectedMonumentId) {
+                            const selectedMarker = allMarkers.find(m => m.monument && m.monument.id == selectedMonumentId);
+                            if (selectedMarker) {
+                                // Center map on selected monument
+                                map.setView([selectedMarker.monument.coordinates.lat, selectedMarker.monument.coordinates.lng], Math.max(map.getZoom(), 15));
+                                
+                                // Show monument info
+                                showMonumentInfo(selectedMarker.monument);
+                            }
+                        }
 
                         hasTurkeyDatasetLoaded = true;
 
@@ -832,7 +880,12 @@ data-auth="false"
                 }
 
                 photoCount.textContent = `${monument.photo_count} fotoğraf`;
-                detailsLink.href = `/monuments/${monument.id}`;
+                
+                // Build details link with current map state
+                const currentCenter = map.getCenter();
+                const currentZoom = map.getZoom();
+                detailsLink.href = `/monuments/${monument.id}?return_lat=${currentCenter.lat.toFixed(6)}&return_lng=${currentCenter.lng.toFixed(6)}&return_zoom=${currentZoom}`;
+                
                 wikidataLink.href = `https://www.wikidata.org/wiki/${monument.wikidata_id}`;
 
                 // Build upload wizard URL or login link based on auth status
@@ -1058,6 +1111,10 @@ data-auth="false"
                 const infoPanel = document.getElementById('monumentInfo');
                 infoPanel.classList.add('hidden');
                 infoPanel.classList.remove('mobile-open');
+                
+                // Clear selected monument from URL
+                updateMapStateInURL();
+                
                 // Restore search panel to its previous state (do not force open if it was closed)
                 if (searchPanelWasVisibleBeforeInfo) {
                     searchPanel.classList.remove('hidden');
