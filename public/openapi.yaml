@@ -1,86 +1,663 @@
 openapi: 3.0.3
 info:
   title: WLM Turkey API
+  description: |
+    A comprehensive API for the Wiki Loves Monuments Turkey project, providing access to Turkish cultural heritage monuments, photos, and user authentication through Wikimedia OAuth.
+    
+    ## Features
+    - Monument search and filtering
+    - Map markers with geographic data
+    - Photo management and upload to Wikimedia Commons
+    - User authentication via Wikimedia OAuth
+    - Category and location-based filtering
+    - Real-time data synchronization with Wikidata
+    
+    ## Authentication
+    This API uses session-based authentication with Wikimedia OAuth. Users must authenticate through Wikimedia to access protected endpoints.
+    
+    ## Rate Limiting
+    API requests are subject to rate limiting. Please implement appropriate retry logic with exponential backoff.
+    
+    ## Mobile Support
+    Special handling for mobile Safari browsers with persistent authentication tokens.
   version: 1.0.0
+  contact:
+    name: WLM Turkey Support
+    url: https://wlmtr.org
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
 servers:
   - url: /
+    description: Production server
+  - url: http://localhost:8000
+    description: Development server
+
 components:
+  securitySchemes:
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: laravel_session
+      description: Session-based authentication using Laravel sessions
+    csrfToken:
+      type: apiKey
+      in: header
+      name: X-CSRF-TOKEN
+      description: CSRF token for state-changing operations
+
   schemas:
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "An error occurred"
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        debug:
+          type: object
+          description: Debug information (only in development mode)
+
+    Success:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Operation completed successfully"
+        data:
+          type: object
+          description: Response data
+
+    Pagination:
+      type: object
+      properties:
+        current_page:
+          type: integer
+          example: 1
+        last_page:
+          type: integer
+          example: 10
+        per_page:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 200
+
+    Coordinates:
+      type: object
+      properties:
+        lat:
+          type: number
+          format: float
+          example: 41.0082
+          description: Latitude coordinate
+        lng:
+          type: number
+          format: float
+          example: 28.9784
+          description: Longitude coordinate
+      required:
+        - lat
+        - lng
+
     Photo:
       type: object
       properties:
-        id: { type: integer }
-        title: { type: string, nullable: true }
-        description: { type: string, nullable: true }
-        photographer: { type: string, nullable: true }
-        license: { type: string, nullable: true }
-        display_url: { type: string }
-        full_resolution_url: { type: string }
-        commons_url: { type: string, nullable: true }
+        id:
+          type: integer
+          nullable: true
+          example: 123
+          description: Internal photo ID (null for Commons-only photos)
+        commons_filename:
+          type: string
+          nullable: true
+          example: "Hagia_Sophia_2023.jpg"
+          description: Original filename on Wikimedia Commons
+        title:
+          type: string
+          example: "Hagia Sophia from the south"
+          description: Photo title
+        description:
+          type: string
+          nullable: true
+          example: "View of Hagia Sophia from the south side"
+          description: Photo description
+        photographer:
+          type: string
+          nullable: true
+          example: "John Doe"
+          description: Photographer name
+        license:
+          type: string
+          nullable: true
+          example: "CC BY-SA 4.0"
+          description: License display name
+        date_taken:
+          type: string
+          format: date
+          nullable: true
+          example: "2023-06-15"
+          description: Date when photo was taken
+        display_url:
+          type: string
+          example: "https://commons.wikimedia.org/w/index.php?title=Special:Redirect/file/Hagia_Sophia_2023.jpg&width=640"
+          description: Thumbnail URL for display
+        full_resolution_url:
+          type: string
+          example: "https://commons.wikimedia.org/wiki/File:Hagia_Sophia_2023.jpg"
+          description: Full resolution image URL
+        commons_url:
+          type: string
+          nullable: true
+          example: "https://commons.wikimedia.org/wiki/File:Hagia_Sophia_2023.jpg"
+          description: Wikimedia Commons page URL
+        is_featured:
+          type: boolean
+          example: true
+          description: Whether this is the featured photo for the monument
+        is_uploaded_via_app:
+          type: boolean
+          example: false
+          description: Whether photo was uploaded via this app
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+          description: Category ID
+        name:
+          type: string
+          example: "Mosques"
+          description: Category name (Turkish preferred)
+        description:
+          type: string
+          nullable: true
+          example: "Islamic religious buildings"
+          description: Category description
+        wikidata_id:
+          type: string
+          nullable: true
+          example: "Q32815"
+          description: Wikidata Q-code for this category
+        monument_count:
+          type: integer
+          example: 45
+          description: Number of monuments in this category
+        color:
+          type: string
+          nullable: true
+          example: "#FF5733"
+          description: Display color for this category
+
     Monument:
       type: object
       properties:
-        id: { type: integer }
-        wikidata_id: { type: string }
-        name: { type: string }
-        description: { type: string, nullable: true }
+        id:
+          type: integer
+          example: 1
+          description: Internal monument ID
+        wikidata_id:
+          type: string
+          nullable: true
+          example: "Q41673"
+          description: Wikidata Q-code
+        name:
+          type: string
+          example: "Hagia Sophia"
+          description: Monument name (Turkish preferred)
+        description:
+          type: string
+          nullable: true
+          example: "Former Greek Orthodox Christian patriarchal cathedral"
+          description: Monument description
         coordinates:
-          type: object
-          properties:
-            lat: { type: number, format: float }
-            lng: { type: number, format: float }
-        address: { type: string, nullable: true }
-        city: { type: string, nullable: true }
-        province: { type: string, nullable: true }
-        heritage_status: { type: string, nullable: true }
-        construction_date: { type: string, nullable: true }
-        architect: { type: string, nullable: true }
-        style: { type: string, nullable: true }
-        material: { type: string, nullable: true }
-        wikidata_url: { type: string, nullable: true }
-        wikipedia_url: { type: string, nullable: true }
-        commons_url: { type: string, nullable: true }
-        has_photos: { type: boolean }
-        photo_count: { type: integer }
+          $ref: '#/components/schemas/Coordinates'
+        address:
+          type: string
+          nullable: true
+          example: "Sultan Ahmet, Ayasofya Meydanı No:1, 34122 Fatih/İstanbul"
+          description: Physical address
+        city:
+          type: string
+          nullable: true
+          example: "Istanbul"
+          description: City name
+        province:
+          type: string
+          nullable: true
+          example: "Istanbul"
+          description: Province name
+        admin_area:
+          type: string
+          nullable: true
+          example: "Fatih, Istanbul, Turkey"
+          description: Administrative area hierarchy
+        location_hierarchy_tr:
+          type: string
+          nullable: true
+          example: "Fatih, İstanbul, Türkiye"
+          description: Turkish location hierarchy
+        heritage_status:
+          type: string
+          nullable: true
+          example: "UNESCO World Heritage Site"
+          description: Heritage protection status
+        construction_date:
+          type: string
+          nullable: true
+          example: "537"
+          description: Construction or establishment date
+        architect:
+          type: string
+          nullable: true
+          example: "Isidore of Miletus, Anthemius of Tralles"
+          description: Architect or designer
+        style:
+          type: string
+          nullable: true
+          example: "Byzantine"
+          description: Architectural style
+        material:
+          type: string
+          nullable: true
+          example: "Marble, brick"
+          description: Construction materials
+        wikidata_url:
+          type: string
+          nullable: true
+          example: "https://www.wikidata.org/wiki/Q41673"
+          description: Wikidata entity URL
+        wikipedia_url:
+          type: string
+          nullable: true
+          example: "https://tr.wikipedia.org/wiki/Ayasofya"
+          description: Wikipedia article URL
+        commons_url:
+          type: string
+          nullable: true
+          example: "https://commons.wikimedia.org/wiki/Category:Hagia_Sophia"
+          description: Wikimedia Commons category URL
+        commons_category:
+          type: string
+          nullable: true
+          example: "Hagia_Sophia"
+          description: Commons category name
+        has_photos:
+          type: boolean
+          example: true
+          description: Whether monument has photos
+        photo_count:
+          type: integer
+          example: 15
+          description: Total number of photos
         photos:
           type: array
           items:
             $ref: '#/components/schemas/Photo'
+          description: List of photos for this monument
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+          description: Categories this monument belongs to
+        last_synced_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2023-12-01T10:30:00Z"
+          description: Last synchronization with Wikidata
+        raw_wikidata:
+          type: object
+          nullable: true
+          description: Raw Wikidata entity data (only when requested)
+
+    MonumentMarker:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        wikidata_id:
+          type: string
+          nullable: true
+          example: "Q41673"
+        name:
+          type: string
+          example: "Hagia Sophia"
+        description:
+          type: string
+          nullable: true
+          example: "Former Greek Orthodox Christian patriarchal cathedral"
+        coordinates:
+          $ref: '#/components/schemas/Coordinates'
+        province:
+          type: string
+          nullable: true
+          example: "Istanbul"
+        has_photos:
+          type: boolean
+          example: true
+        photo_count:
+          type: integer
+          example: 15
+        category_qid:
+          type: string
+          nullable: true
+          example: "Q32815"
+        category_label_tr:
+          type: string
+          nullable: true
+          example: "Mosques"
+        type_qid:
+          type: string
+          nullable: true
+          example: "Q32815"
+        type_label_tr:
+          type: string
+          nullable: true
+          example: "Mosques"
+        featured_photo:
+          type: object
+          nullable: true
+          properties:
+            title:
+              type: string
+              example: "Hagia Sophia from the south"
+            photographer:
+              type: string
+              nullable: true
+              example: "John Doe"
+            license:
+              type: string
+              nullable: true
+              example: "CC BY-SA 4.0"
+            commons_url:
+              type: string
+              nullable: true
+              example: "https://commons.wikimedia.org/wiki/File:Hagia_Sophia_2023.jpg"
+            display_url:
+              type: string
+              example: "https://commons.wikimedia.org/w/index.php?title=Special:Redirect/file/Hagia_Sophia_2023.jpg&width=640"
+            full_resolution_url:
+              type: string
+              example: "https://commons.wikimedia.org/wiki/File:Hagia_Sophia_2023.jpg"
+        url:
+          type: string
+          example: "/monuments/1"
+          description: URL to monument detail page
+
+    Filters:
+      type: object
+      properties:
+        provinces:
+          type: array
+          items:
+            type: string
+          example: ["Istanbul", "Ankara", "Izmir"]
+          description: Available provinces
+        cities:
+          type: array
+          items:
+            type: string
+          example: ["Istanbul", "Ankara", "Izmir"]
+          description: Available cities
+        heritage_statuses:
+          type: array
+          items:
+            type: string
+          example: ["UNESCO World Heritage Site", "National Monument"]
+          description: Available heritage statuses
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+          description: Available categories
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "John Doe"
+        email:
+          type: string
+          format: email
+          example: "john@example.com"
+        wikimedia_id:
+          type: string
+          nullable: true
+          example: "12345"
+        wikimedia_username:
+          type: string
+          nullable: true
+          example: "JohnDoe"
+        wikimedia_real_name:
+          type: string
+          nullable: true
+          example: "John Doe"
+        has_commons_edit_permission:
+          type: boolean
+          example: true
+        last_wikimedia_sync:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2023-12-01T10:30:00Z"
+
+    CSRFToken:
+      type: object
+      properties:
+        token:
+          type: string
+          example: "abc123def456"
+          description: CSRF token for form submissions
+
+    WikidataLabel:
+      type: object
+      properties:
+        label:
+          type: string
+          example: "Mosque"
+          description: Human-readable label for the Q-code
+        error:
+          type: string
+          nullable: true
+          example: "Failed to fetch label"
+          description: Error message if label fetch failed
+
+    PhotoUploadRequest:
+      type: object
+      required:
+        - photo
+        - title
+        - date
+        - monument_id
+      properties:
+        photo:
+          type: string
+          format: binary
+          description: Image file (JPEG, PNG, etc.)
+        title:
+          type: string
+          maxLength: 255
+          example: "Hagia Sophia from the south"
+          description: Photo title
+        description:
+          type: string
+          maxLength: 5000
+          nullable: true
+          example: "View of Hagia Sophia from the south side"
+          description: Photo description
+        date:
+          type: string
+          format: date
+          example: "2023-06-15"
+          description: Date when photo was taken
+        categories:
+          type: array
+          items:
+            type: string
+            maxLength: 255
+          nullable: true
+          example: ["Istanbul", "Mosques"]
+          description: Additional categories for the photo
+        monument_id:
+          type: integer
+          example: 1
+          description: ID of the monument this photo belongs to
+
+    PhotoUploadResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Fotoğraf başarıyla Wikimedia Commons'a yüklendi!"
+        data:
+          type: object
+          properties:
+            filename:
+              type: string
+              example: "Hagia_Sophia_2023.jpg"
+            commons_url:
+              type: string
+              example: "https://commons.wikimedia.org/wiki/File:Hagia_Sophia_2023.jpg"
+            upload_id:
+              type: string
+              example: "12345"
+        details:
+          type: object
+          nullable: true
+          description: Additional upload details
+
 paths:
+  /api/csrf-token:
+    get:
+      summary: Get CSRF token
+      description: |
+        Retrieve a CSRF token for form submissions. This is particularly important for mobile Safari compatibility.
+        
+        **Usage:**
+        1. Call this endpoint before any POST/PUT/DELETE requests
+        2. Include the token in the `X-CSRF-TOKEN` header
+        3. For forms, include the token in a hidden `_token` field
+      tags: [Authentication]
+      security: []
+      responses:
+        '200':
+          description: CSRF token retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CSRFToken'
+              example:
+                token: "abc123def456ghi789"
+
   /api/monuments/search:
     get:
       summary: Search monuments
+      description: |
+        Search and filter monuments with various criteria including text search, location filters, and category filters.
+        
+        **Search Features:**
+        - Full-text search across monument names and descriptions
+        - Geographic filtering by province, city, and coordinates
+        - Category-based filtering
+        - Heritage status filtering
+        - Photo availability filtering
+        - Distance-based search with radius
+        
+        **Pagination:**
+        Results are paginated with configurable page size.
       tags: [Monuments]
       parameters:
         - in: query
           name: q
           schema:
             type: string
+          example: "Hagia Sophia"
+          description: Search query for monument names and descriptions
         - in: query
           name: province
           schema:
             type: string
+          example: "Istanbul"
+          description: Filter by province
         - in: query
           name: city
           schema:
             type: string
+          example: "Istanbul"
+          description: Filter by city
         - in: query
           name: heritage_status
           schema:
             type: string
+          example: "UNESCO World Heritage Site"
+          description: Filter by heritage status
         - in: query
           name: has_photos
           schema:
             type: string
             enum: ["0", "1"]
+          example: "1"
+          description: Filter by photo availability (1 = has photos, 0 = no photos)
         - in: query
           name: category
           schema:
             type: integer
+          example: 1
+          description: Filter by category ID
+        - in: query
+          name: lat
+          schema:
+            type: number
+            format: float
+          example: 41.0082
+          description: Latitude for distance-based search
+        - in: query
+          name: lng
+          schema:
+            type: number
+            format: float
+          example: 28.9784
+          description: Longitude for distance-based search
+        - in: query
+          name: distance
+          schema:
+            type: number
+            format: float
+          example: 50
+          description: Search radius in kilometers (requires lat and lng)
         - in: query
           name: per_page
           schema:
             type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          example: 20
+          description: Number of results per page
       responses:
         '200':
           description: Paginated monuments list
@@ -94,33 +671,154 @@ paths:
                     items:
                       $ref: '#/components/schemas/Monument'
                   pagination:
-                    type: object
-                    properties:
-                      current_page: { type: integer }
-                      last_page: { type: integer }
-                      per_page: { type: integer }
-                      total: { type: integer }
+                    $ref: '#/components/schemas/Pagination'
+              example:
+                data:
+                  - id: 1
+                    wikidata_id: "Q41673"
+                    name: "Hagia Sophia"
+                    description: "Former Greek Orthodox Christian patriarchal cathedral"
+                    coordinates:
+                      lat: 41.0086
+                      lng: 28.9802
+                    province: "Istanbul"
+                    has_photos: true
+                    photo_count: 15
+                    photos: []
+                    categories: []
+                pagination:
+                  current_page: 1
+                  last_page: 10
+                  per_page: 20
+                  total: 200
+
   /api/monuments/map-markers:
     get:
-      summary: Map markers for monuments
+      summary: Get map markers
+      description: |
+        Retrieve monument markers for map display with optional filtering. This endpoint is optimized for map performance with minimal data payload.
+        
+        **Performance Features:**
+        - Cached responses for better performance
+        - Bounds-based filtering to reduce data transfer
+        - Optimized data structure for map rendering
+        - Support for different zoom levels
+        
+        **Caching:**
+        - Turkey-wide coverage: 10 minutes
+        - Bounded requests: 1 minute
+        - Filtered requests: computed on demand
       tags: [Monuments]
       parameters:
         - in: query
           name: bounds
           schema:
             type: object
+            properties:
+              north:
+                type: number
+                format: float
+                example: 42.0
+              south:
+                type: number
+                format: float
+                example: 40.0
+              east:
+                type: number
+                format: float
+                example: 30.0
+              west:
+                type: number
+                format: float
+                example: 28.0
+          description: Map bounds for filtering markers
+        - in: query
+          name: coverage
+          schema:
+            type: string
+            enum: ["turkey"]
+          example: "turkey"
+          description: Request Turkey-wide coverage
+        - in: query
+          name: zoom
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 20
+          example: 10
+          description: Map zoom level for cache optimization
+        - in: query
+          name: q
+          schema:
+            type: string
+          example: "mosque"
+          description: Search query
+        - in: query
+          name: province
+          schema:
+            type: string
+          example: "Istanbul"
+          description: Filter by province
+        - in: query
+          name: category
+          schema:
+            type: integer
+          example: 1
+          description: Filter by category ID
+        - in: query
+          name: has_photos
+          schema:
+            type: string
+            enum: ["0", "1"]
+          example: "1"
+          description: Filter by photo availability
       responses:
         '200':
-          description: Marker list
+          description: Map markers retrieved successfully
+          headers:
+            Cache-Control:
+              description: Cache control header
+              schema:
+                type: string
+                example: "public, max-age=600"
+            X-Cache:
+              description: Cache status
+              schema:
+                type: string
+                enum: ["HIT", "MISS", "MISS-COMPUTED"]
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Monument'
+                  $ref: '#/components/schemas/MonumentMarker'
+              example:
+                - id: 1
+                  wikidata_id: "Q41673"
+                  name: "Hagia Sophia"
+                  coordinates:
+                    lat: 41.0086
+                    lng: 28.9802
+                  province: "Istanbul"
+                  has_photos: true
+                  photo_count: 15
+                  featured_photo:
+                    title: "Hagia Sophia from the south"
+                    display_url: "https://commons.wikimedia.org/w/index.php?title=Special:Redirect/file/Hagia_Sophia_2023.jpg&width=640"
+                  url: "/monuments/1"
+
   /api/monuments/{id}:
     get:
       summary: Get monument details
+      description: |
+        Retrieve detailed information about a specific monument including photos, categories, and metadata.
+        
+        **Features:**
+        - Complete monument information
+        - Associated photos (both stored and Commons category photos)
+        - Category information
+        - Wikidata integration
+        - Optional raw Wikidata data
       tags: [Monuments]
       parameters:
         - in: path
@@ -128,18 +826,425 @@ paths:
           required: true
           schema:
             type: integer
+          example: 1
+          description: Monument ID
+        - in: query
+          name: raw
+          schema:
+            type: boolean
+            default: false
+          example: false
+          description: Include raw Wikidata entity data
       responses:
         '200':
-          description: Monument details
+          description: Monument details retrieved successfully
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Monument'
+              example:
+                id: 1
+                wikidata_id: "Q41673"
+                name: "Hagia Sophia"
+                description: "Former Greek Orthodox Christian patriarchal cathedral"
+                coordinates:
+                  lat: 41.0086
+                  lng: 28.9802
+                province: "Istanbul"
+                has_photos: true
+                photo_count: 15
+                photos:
+                  - id: 1
+                    title: "Hagia Sophia from the south"
+                    photographer: "John Doe"
+                    license: "CC BY-SA 4.0"
+                    display_url: "https://commons.wikimedia.org/w/index.php?title=Special:Redirect/file/Hagia_Sophia_2023.jpg&width=640"
+                categories:
+                  - id: 1
+                    name: "Mosques"
+                    description: "Islamic religious buildings"
+        '404':
+          description: Monument not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /api/monuments/filters:
     get:
-      summary: Available filters
+      summary: Get available filters
+      description: |
+        Retrieve all available filter options for monument search including provinces, cities, heritage statuses, and categories.
+        
+        **Data Sources:**
+        - Provinces: Database + Wikidata fallback
+        - Cities: Database only
+        - Heritage statuses: Database only
+        - Categories: Database with monument counts
       tags: [Monuments]
       responses:
         '200':
-          description: Filters
+          description: Available filters retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Filters'
+              example:
+                provinces: ["Istanbul", "Ankara", "Izmir"]
+                cities: ["Istanbul", "Ankara", "Izmir"]
+                heritage_statuses: ["UNESCO World Heritage Site", "National Monument"]
+                categories:
+                  - id: 1
+                    name: "Mosques"
+                    wikidata_id: "Q32815"
+                    monument_count: 45
+        '500':
+          description: Error retrieving filters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
+  /api/monuments/test/images:
+    get:
+      summary: Test image display
+      description: |
+        Test endpoint for fetching monuments with images from Wikidata. This is primarily used for development and testing purposes.
+      tags: [Monuments]
+      responses:
+        '200':
+          description: Test results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  count:
+                    type: integer
+                    example: 10
+                  monuments:
+                    type: array
+                    items:
+                      type: object
+        '500':
+          description: Error during test
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/wikidata/label/{qcode}:
+    get:
+      summary: Get Wikidata label
+      description: |
+        Retrieve human-readable label for a Wikidata Q-code.
+      tags: [Wikidata]
+      parameters:
+        - in: path
+          name: qcode
+          required: true
+          schema:
+            type: string
+            pattern: '^Q\d+$'
+          example: "Q32815"
+          description: Wikidata Q-code
+      responses:
+        '200':
+          description: Label retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WikidataLabel'
+              example:
+                label: "Mosque"
+        '500':
+          description: Error retrieving label
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/cache/warm/monuments/turkey:
+    post:
+      summary: Warm Turkey markers cache
+      description: |
+        Trigger cache warming for Turkey-wide monument markers. This endpoint is secured and requires a special token.
+      tags: [Cache]
+      security:
+        - sessionAuth: []
+      parameters:
+        - in: header
+          name: X-Cache-Warm-Token
+          schema:
+            type: string
+          description: Cache warming token
+        - in: query
+          name: token
+          schema:
+            type: string
+          description: Cache warming token (alternative to header)
+      responses:
+        '200':
+          description: Cache warming initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  queued:
+                    type: boolean
+                    example: true
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /photos/upload:
+    post:
+      summary: Upload photo to Wikimedia Commons
+      description: |
+        Upload a photo to Wikimedia Commons for a specific monument. Requires Wikimedia authentication.
+        
+        **Authentication:**
+        - User must be authenticated via Wikimedia OAuth
+        - Valid Wikimedia access token required
+        - Token must not be expired
+        
+        **File Requirements:**
+        - Image format (JPEG, PNG, etc.)
+        - Minimum size: 10 KB
+        - Maximum size: 100 MB
+        
+        **Upload Process:**
+        1. Photo is uploaded to Wikimedia Commons
+        2. Appropriate templates and categories are added
+        3. Monument information is included in description
+        4. Location data is added if available
+      tags: [Photos]
+      security:
+        - sessionAuth: []
+        - csrfToken: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PhotoUploadRequest'
+      responses:
+        '200':
+          description: Photo uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhotoUploadResponse'
+              example:
+                success: true
+                message: "Fotoğraf başarıyla Wikimedia Commons'a yüklendi!"
+                data:
+                  filename: "Hagia_Sophia_2023.jpg"
+                  commons_url: "https://commons.wikimedia.org/wiki/File:Hagia_Sophia_2023.jpg"
+                  upload_id: "12345"
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Wikimedia authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Upload failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login:
+    get:
+      summary: Show login page
+      description: |
+        Display the Wikimedia login page for user authentication.
+      tags: [Authentication]
+      security: []
+      responses:
+        '200':
+          description: Login page displayed
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /auth/wikimedia:
+    get:
+      summary: Redirect to Wikimedia OAuth
+      description: |
+        Initiate Wikimedia OAuth authentication flow.
+      tags: [Authentication]
+      security: []
+      parameters:
+        - in: query
+          name: return_url
+          schema:
+            type: string
+          description: URL to redirect to after successful authentication
+      responses:
+        '302':
+          description: Redirect to Wikimedia OAuth
+
+  /auth/wikimedia/callback:
+    get:
+      summary: Handle Wikimedia OAuth callback
+      description: |
+        Handle the callback from Wikimedia OAuth authentication.
+      tags: [Authentication]
+      security: []
+      responses:
+        '302':
+          description: Redirect to intended page or map
+
+  /auth/logout:
+    post:
+      summary: Logout user
+      description: |
+        Logout the current user and invalidate session.
+      tags: [Authentication]
+      security:
+        - sessionAuth: []
+        - csrfToken: []
+      responses:
+        '302':
+          description: Redirect to map page
+
+  /auth/profile:
+    get:
+      summary: Get user profile
+      description: |
+        Retrieve current user's profile information including Wikimedia data.
+      tags: [Authentication]
+      security:
+        - sessionAuth: []
+      responses:
+        '200':
+          description: Profile retrieved successfully
+          content:
+            text/html:
+              schema:
+                type: string
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/profile/sync-wikimedia:
+    post:
+      summary: Sync Wikimedia data
+      description: |
+        Synchronize user's Wikimedia data with the latest information.
+      tags: [Authentication]
+      security:
+        - sessionAuth: []
+        - csrfToken: []
+      responses:
+        '302':
+          description: Redirect to profile page
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/debug:
+    get:
+      summary: Debug authentication
+      description: |
+        Debug endpoint for checking authentication status and session data. Useful for mobile Safari debugging.
+      tags: [Authentication]
+      security:
+        - sessionAuth: []
+      responses:
+        '200':
+          description: Debug information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authenticated:
+                    type: boolean
+                    example: true
+                  user_id:
+                    type: integer
+                    example: 1
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 1
+                      username:
+                        type: string
+                        example: "JohnDoe"
+                      wikimedia_username:
+                        type: string
+                        example: "JohnDoe"
+                  session_id:
+                    type: string
+                    example: "abc123def456"
+                  session_data:
+                    type: object
+                    properties:
+                      wikimedia_access_token:
+                        type: boolean
+                        example: true
+                      user_agent:
+                        type: string
+                        example: "Mozilla/5.0..."
+                      oauth_started:
+                        type: integer
+                        example: 1701234567
+                  user_agent:
+                    type: string
+                    example: "Mozilla/5.0..."
+                  is_mobile_safari:
+                    type: boolean
+                    example: false
+                  auth_token_present:
+                    type: boolean
+                    example: false
+                  auth_token:
+                    type: string
+                    nullable: true
+                    example: null
+
+tags:
+  - name: Monuments
+    description: Monument-related operations
+  - name: Photos
+    description: Photo upload and management
+  - name: Authentication
+    description: User authentication and authorization
+  - name: Wikidata
+    description: Wikidata integration
+  - name: Cache
+    description: Cache management operations

@@ -156,7 +156,7 @@ class UpdateMonumentsCommonsJob implements ShouldQueue
 
         try {
             $response = \Illuminate\Support\Facades\Http::withHeaders([
-                'User-Agent' => 'WikiLovesMonumentsTurkey/1.0 (https://wlmtr.org; mailto:info@wlmtr.org)',
+                'User-Agent' => 'WikiLovesMonumentsTurkey/1.0 (https://vikianitlariseviyor.tr; User_talk:Magurale")',
                 'Accept' => 'application/sparql-results+json',
                 'Content-Type' => 'application/x-www-form-urlencoded',
             ])->timeout(60)->retry(3, 2000)->asForm()->post('https://query.wikidata.org/sparql', [
