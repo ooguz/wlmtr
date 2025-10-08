@@ -14,7 +14,7 @@ Route::get('/', function () {
 Route::prefix('monuments')->name('monuments.')->middleware('mobile.safari.auth')->group(function () {
     Route::get('/map', [MonumentController::class, 'map'])->name('map');
     Route::get('/list', [MonumentController::class, 'list'])->name('list');
-    Route::get('/{monument}', [MonumentController::class, 'show'])->name('show');
+    Route::get('/{identifier}', [MonumentController::class, 'show'])->name('show');
 });
 
 // Authentication routes
@@ -23,7 +23,7 @@ Route::prefix('auth')->name('auth.')->group(function () {
     Route::get('/wikimedia', [WikimediaAuthController::class, 'redirectToWikimedia'])->name('wikimedia.redirect');
     Route::get('/wikimedia/callback', [WikimediaAuthController::class, 'handleWikimediaCallback'])->name('wikimedia.callback');
     Route::post('/logout', [WikimediaAuthController::class, 'logout'])->name('logout');
-    
+
     // Debug route for mobile Safari session testing
     Route::get('/debug', function () {
         return response()->json([
@@ -37,8 +37,8 @@ Route::prefix('auth')->name('auth.')->group(function () {
                 'oauth_started' => session()->get('oauth_started_at'),
             ],
             'user_agent' => request()->userAgent(),
-            'is_mobile_safari' => preg_match('/Mobile\/.*Safari/', request()->userAgent()) && 
-                                 !preg_match('/CriOS|FxiOS|EdgiOS/', request()->userAgent()),
+            'is_mobile_safari' => preg_match('/Mobile\/.*Safari/', request()->userAgent()) &&
+                                 ! preg_match('/CriOS|FxiOS|EdgiOS/', request()->userAgent()),
             'auth_token_present' => request()->has('auth_token'),
             'auth_token' => request()->input('auth_token'),
         ]);
@@ -61,14 +61,14 @@ Route::prefix('api')->name('api.')->group(function () {
     // CSRF token endpoint for Safari compatibility
     Route::get('/csrf-token', function () {
         return response()->json([
-            'token' => csrf_token()
+            'token' => csrf_token(),
         ]);
     })->name('csrf-token');
-    
+
     Route::get('/monuments/map-markers', [MonumentController::class, 'apiMapMarkers'])->name('monuments.map-markers');
     Route::get('/monuments/search', [MonumentController::class, 'apiSearch'])->name('monuments.search');
     Route::get('/monuments/filters', [MonumentController::class, 'apiFilters'])->name('monuments.filters');
-    Route::get('/monuments/{monument}', [MonumentController::class, 'apiShow'])->name('monuments.show');
+    Route::get('/monuments/{identifier}', [MonumentController::class, 'apiShow'])->name('monuments.show');
     Route::get('/monuments/test/images', [MonumentController::class, 'apiTestImages'])->name('monuments.test-images');
     Route::get('/wikidata/label/{qcode}', [MonumentController::class, 'apiWikidataLabel'])->name('wikidata.label');
 

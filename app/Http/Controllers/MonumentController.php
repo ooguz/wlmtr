@@ -12,6 +12,40 @@ use Illuminate\View\View;
 class MonumentController extends Controller
 {
     /**
+     * Resolve monument by ID or Wikidata ID.
+     */
+    private function resolveMonument(string $identifier): Monument
+    {
+        // Check if it's a Wikidata ID (starts with Q followed by digits)
+        if (preg_match('/^Q\d+$/i', $identifier)) {
+            $monument = Monument::where('wikidata_id', strtoupper($identifier))->first();
+            if (! $monument) {
+                abort(404, 'Monument not found');
+            }
+
+            return $monument;
+        }
+
+        // Check if it's a numeric ID
+        if (is_numeric($identifier)) {
+            $monument = Monument::find($identifier);
+            if (! $monument) {
+                abort(404, 'Monument not found');
+            }
+
+            return $monument;
+        }
+
+        // If neither, try to find by ID anyway (for backward compatibility)
+        $monument = Monument::find($identifier);
+        if (! $monument) {
+            abort(404, 'Monument not found');
+        }
+
+        return $monument;
+    }
+
+    /**
      * Display the monuments map view.
      */
     public function map(Request $request): View
@@ -94,7 +128,7 @@ class MonumentController extends Controller
                         $q->orWhereRaw("LOWER(JSON_UNQUOTE(JSON_EXTRACT(properties, '$.instance_of_label_tr'))) LIKE ?", [$labelLike]);
                     } else {
                         $q->orWhere('properties', 'like', '%instance_of_label_tr%')
-                          ->orWhere('properties', 'like', '%'.trim($labelLike, '%').'%');
+                            ->orWhere('properties', 'like', '%'.trim($labelLike, '%').'%');
                     }
                 }
             });
@@ -175,8 +209,9 @@ class MonumentController extends Controller
     /**
      * Display monument details.
      */
-    public function show(Monument $monument, \App\Services\WikidataSparqlService $sparqlService, \App\Services\WikimediaCommonsService $commonsService): View
+    public function show(string $identifier, \App\Services\WikidataSparqlService $sparqlService, \App\Services\WikimediaCommonsService $commonsService): View
     {
+        $monument = $this->resolveMonument($identifier);
         $monument->load(['photos', 'categories']);
 
         // Build display photos: start with stored photos
@@ -397,12 +432,14 @@ class MonumentController extends Controller
             if ($isFiltered) {
                 $markers = $compute();
                 Cache::put($cacheKey, $markers, now()->addMinutes(10));
+
                 return response()->json($markers)
                     ->header('Cache-Control', 'public, max-age='.$ttlSeconds)
                     ->header('X-Cache', 'MISS-COMPUTED');
             }
             // Unfiltered: dispatch warm job and return fast, empty set
             \App\Jobs\WarmTurkeyMarkersJob::dispatch();
+
             return response()->json([])
                 ->header('Cache-Control', 'no-cache')
                 ->header('X-Cache', 'MISS');
@@ -477,8 +514,9 @@ class MonumentController extends Controller
     /**
      * API: Get monument details.
      */
-    public function apiShow(Monument $monument, \App\Services\WikimediaCommonsService $commonsService): JsonResponse
+    public function apiShow(string $identifier, \App\Services\WikimediaCommonsService $commonsService): JsonResponse
     {
+        $monument = $this->resolveMonument($identifier);
         $monument->load(['photos', 'categories']);
 
         // Prepare combined photos including Commons category if available
@@ -563,8 +601,8 @@ class MonumentController extends Controller
             'wikidata_url' => $monument->wikidata_url,
             'wikipedia_url' => $monument->wikipedia_url,
             'commons_url' => $monument->commons_url,
-            'has_photos' => $monument->has_photos || (!$hasWikidataImage && $addedFromCommons > 0),
-            'photo_count' => (int) $monument->photo_count + (!$hasWikidataImage ? (int) $addedFromCommons : 0),
+            'has_photos' => $monument->has_photos || (! $hasWikidataImage && $addedFromCommons > 0),
+            'photo_count' => (int) $monument->photo_count + (! $hasWikidataImage ? (int) $addedFromCommons : 0),
             'photos' => $photosOut,
             'categories' => $monument->categories->map(function ($category) {
                 return [
@@ -656,6 +694,7 @@ class MonumentController extends Controller
         }
 
         \App\Jobs\WarmTurkeyMarkersJob::dispatch();
+
         return response()->json(['success' => true, 'queued' => true]);
     }
 
