@@ -678,8 +678,8 @@ data-auth="false"
                                 .lng
                             ], {
                                 radius: finalRadius,
-                                fillColor: '#3B82F6',
-                                color: '#1E40AF',
+                                fillColor: item.has_photos ? '#00C851' : '#FF4444',
+                                color: item.has_photos ? '#007E33' : '#CC0000',
                                 weight: isMobile ? 3 : 2, // Thicker border on mobile
                                 opacity: 1,
                                 fillOpacity: 0.8
@@ -1227,9 +1227,9 @@ data-auth="false"
                             </label>
                             <div id="categoriesContainer" class="mb-2 flex flex-wrap gap-2">
                                 ${commonsCategory ? `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800" data-category="${commonsCategory}">
-                                                ${commonsCategory}
-                                                <button type="button" onclick="removeCategory(this)" class="ml-2 text-blue-600 hover:text-blue-800">×</button>
-                                            </span>` : ''}
+                                                    ${commonsCategory}
+                                                    <button type="button" onclick="removeCategory(this)" class="ml-2 text-blue-600 hover:text-blue-800">×</button>
+                                                </span>` : ''}
                             </div>
                             <div class="flex gap-2">
                                 <input type="text" id="categoryInput" placeholder="Kategori ekle"
