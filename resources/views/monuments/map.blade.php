@@ -158,7 +158,7 @@
             class="absolute top-4 left-4 z-20 bg-white rounded-lg shadow-lg p-4 w-80 max-h-[calc(120vh-8rem)] overflow-y-auto hidden">
             <div class="flex justify-between items-start mb-3">
                 <h3 id="monumentTitle" class="text-lg font-semibold"></h3>
-                <button id="closeInfo" class="text-gray-400 hover:text-gray-600">
+                <button id="closeInfo" class="text-gray-900 hover:text-gray-600">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
                         </path>
@@ -306,7 +306,7 @@ data-auth="false"
             const lng = parseFloat(urlParams.get('lng')) || 34.5;
             const zoom = parseInt(urlParams.get('zoom')) || 6;
             const selectedMonumentId = urlParams.get('selected');
-            
+
             // Initialize map with URL parameters or defaults
             const map = L.map('map', {
                 zoomControl: false
@@ -338,13 +338,13 @@ data-auth="false"
                 url.searchParams.set('lat', center.lat.toFixed(6));
                 url.searchParams.set('lng', center.lng.toFixed(6));
                 url.searchParams.set('zoom', zoom);
-                
+
                 if (monumentId) {
                     url.searchParams.set('selected', monumentId);
                 } else {
                     url.searchParams.delete('selected');
                 }
-                
+
                 // Update URL without page reload
                 window.history.replaceState({}, '', url);
             }
@@ -725,7 +725,7 @@ data-auth="false"
                             marker.on('click', function() {
                                 // Update URL with selected monument
                                 updateMapStateInURL(item.id);
-                                
+
                                 // Always fetch full details to ensure freshest data in panel
                                 if (item && item.id) {
                                     fetch(`/api/monuments/${item.id}`)
@@ -751,11 +751,14 @@ data-auth="false"
 
                         // If there's a selected monument, highlight it
                         if (selectedMonumentId) {
-                            const selectedMarker = allMarkers.find(m => m.monument && m.monument.id == selectedMonumentId);
+                            const selectedMarker = allMarkers.find(m => m.monument && m.monument.id ==
+                                selectedMonumentId);
                             if (selectedMarker) {
                                 // Center map on selected monument
-                                map.setView([selectedMarker.monument.coordinates.lat, selectedMarker.monument.coordinates.lng], Math.max(map.getZoom(), 15));
-                                
+                                map.setView([selectedMarker.monument.coordinates.lat, selectedMarker.monument
+                                    .coordinates.lng
+                                ], Math.max(map.getZoom(), 15));
+
                                 // Show monument info
                                 showMonumentInfo(selectedMarker.monument);
                             }
@@ -880,12 +883,13 @@ data-auth="false"
                 }
 
                 photoCount.textContent = `${monument.photo_count} fotoğraf`;
-                
+
                 // Build details link with current map state
                 const currentCenter = map.getCenter();
                 const currentZoom = map.getZoom();
-                detailsLink.href = `/monuments/${monument.id}?return_lat=${currentCenter.lat.toFixed(6)}&return_lng=${currentCenter.lng.toFixed(6)}&return_zoom=${currentZoom}`;
-                
+                detailsLink.href =
+                    `/monuments/${monument.id}?return_lat=${currentCenter.lat.toFixed(6)}&return_lng=${currentCenter.lng.toFixed(6)}&return_zoom=${currentZoom}`;
+
                 wikidataLink.href = `https://www.wikidata.org/wiki/${monument.wikidata_id}`;
 
                 // Build upload wizard URL or login link based on auth status
@@ -1111,10 +1115,10 @@ data-auth="false"
                 const infoPanel = document.getElementById('monumentInfo');
                 infoPanel.classList.add('hidden');
                 infoPanel.classList.remove('mobile-open');
-                
+
                 // Clear selected monument from URL
                 updateMapStateInURL();
-                
+
                 // Restore search panel to its previous state (do not force open if it was closed)
                 if (searchPanelWasVisibleBeforeInfo) {
                     searchPanel.classList.remove('hidden');
@@ -1284,9 +1288,9 @@ data-auth="false"
                             </label>
                             <div id="categoriesContainer" class="mb-2 flex flex-wrap gap-2">
                                 ${commonsCategory ? `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800" data-category="${commonsCategory}">
-                                                    ${commonsCategory}
-                                                    <button type="button" onclick="removeCategory(this)" class="ml-2 text-blue-600 hover:text-blue-800">×</button>
-                                                </span>` : ''}
+                                                        ${commonsCategory}
+                                                        <button type="button" onclick="removeCategory(this)" class="ml-2 text-blue-600 hover:text-blue-800">×</button>
+                                                    </span>` : ''}
                             </div>
                             <div class="flex gap-2">
                                 <input type="text" id="categoryInput" placeholder="Kategori ekle"
