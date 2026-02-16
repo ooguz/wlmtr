@@ -168,6 +168,74 @@ class Monument extends Model
     }
 
     /**
+     * Build map marker payload (use with eager-loaded photos to avoid N+1).
+     *
+     * @param  object|\App\Models\Photo|null  $featuredPhoto  Pre-loaded photo, or null to use featured_photo accessor
+     */
+    public function toMapMarkerPayload(?object $featuredPhoto = null): array
+    {
+        $fp = $featuredPhoto ?? $this->featured_photo;
+        $featured = null;
+        if ($fp) {
+            if (is_object($fp) && isset($fp->commons_url)) {
+                $featured = [
+                    'title' => $fp->title ?? ($this->name_tr ?? $this->name_en),
+                    'photographer' => $fp->photographer ?? null,
+                    'license' => $fp->license_display_name ?? ($fp->license ?? null),
+                    'commons_url' => $fp->commons_url ?? null,
+                    'display_url' => $fp->display_url ?? $fp->full_resolution_url ?? null,
+                    'full_resolution_url' => $fp->full_resolution_url ?? $fp->display_url ?? null,
+                ];
+            } elseif (is_object($fp) && (isset($fp->display_url) || isset($fp->full_resolution_url))) {
+                $featured = [
+                    'title' => $this->name_tr ?? $this->name_en,
+                    'photographer' => null,
+                    'license' => null,
+                    'commons_url' => $fp->commons_url ?? null,
+                    'display_url' => (string) ($fp->display_url ?? $fp->full_resolution_url ?? ''),
+                    'full_resolution_url' => (string) ($fp->full_resolution_url ?? $fp->display_url ?? ''),
+                ];
+            }
+        } elseif (isset($this->properties['image'])) {
+            $image = $this->properties['image'];
+            $featured = [
+                'title' => $this->name_tr ?? $this->name_en,
+                'photographer' => null,
+                'license' => null,
+                'commons_url' => 'https://commons.wikimedia.org/wiki/'.rawurlencode($image),
+                'display_url' => static::buildCommonsThumbnailUrl($image, 640),
+                'full_resolution_url' => static::buildCommonsImageUrl($image),
+            ];
+        }
+
+        $props = is_array($this->properties) ? $this->properties : (is_string($this->properties) ? (json_decode($this->properties, true) ?: []) : []);
+        $typeQid = $props['instance_of'] ?? null;
+        $typeLabelTr = $props['instance_of_label_tr'] ?? null;
+
+        return [
+            'id' => $this->id,
+            'wikidata_id' => $this->wikidata_id,
+            'name' => $this->name_tr ?? $this->name_en ?? 'Unnamed Monument',
+            'description' => $this->description_tr ?? $this->description_en,
+            'coordinates' => [
+                'lat' => (float) $this->latitude,
+                'lng' => (float) $this->longitude,
+            ],
+            'province' => $this->province,
+            'city' => $this->city,
+            'location_hierarchy_tr' => $this->location_hierarchy_tr,
+            'has_photos' => (bool) $this->has_photos,
+            'photo_count' => (int) $this->photo_count,
+            'category_qid' => $typeQid,
+            'category_label_tr' => $typeLabelTr,
+            'type_qid' => $typeQid,
+            'type_label_tr' => $typeLabelTr,
+            'featured_photo' => $featured,
+            'url' => "/monuments/{$this->id}",
+        ];
+    }
+
+    /**
      * Get Wikipedia Turkish URL.
      */
     public function getWikipediaTrUrlAttribute(): ?string

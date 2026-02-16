@@ -36,7 +36,7 @@ class WarmTurkeyMarkersJob implements ShouldQueue
             $cacheKey = 'markers:coverage:turkey:'.$filtersHash;
 
             $query = Monument::query()
-                ->select(['id', 'wikidata_id', 'name_tr', 'name_en', 'latitude', 'longitude', 'province', 'city', 'location_hierarchy_tr', 'has_photos', 'photo_count', 'properties'])
+                ->select(['id', 'wikidata_id', 'name_tr', 'name_en', 'description_tr', 'description_en', 'latitude', 'longitude', 'province', 'city', 'location_hierarchy_tr', 'has_photos', 'photo_count', 'properties'])
                 ->whereNotNull('latitude')
                 ->whereNotNull('longitude')
                 ->whereBetween('latitude', [35.8, 42.3])
@@ -62,55 +62,16 @@ class WarmTurkeyMarkersJob implements ShouldQueue
                 }
             }
 
-            $compute = function () use ($query) {
-                return $query->get()->map(function ($m) {
-                    $featured = null;
-                    $fp = $m->featured_photo;
-                    if ($fp) {
-                        if (is_object($fp)) {
-                            $featured = [
-                                'title' => $fp->title ?? ($m->name_tr ?? $m->name_en),
-                                'photographer' => $fp->photographer ?? null,
-                                'license' => $fp->license_display_name ?? ($fp->license ?? null),
-                                'commons_url' => $fp->commons_url ?? null,
-                                'display_url' => $fp->display_url ?? $fp->full_resolution_url ?? null,
-                                'full_resolution_url' => $fp->full_resolution_url ?? $fp->display_url ?? null,
-                            ];
-                        } else {
-                            $featured = [
-                                'title' => $m->name_tr ?? $m->name_en,
-                                'photographer' => null,
-                                'license' => null,
-                                'commons_url' => null,
-                                'display_url' => (string) $fp,
-                                'full_resolution_url' => (string) $fp,
-                            ];
-                        }
+            $markers = [];
+            (clone $query)
+                ->with(['photos' => fn ($q) => $q->orderByRaw('is_featured DESC')->orderBy('id')->limit(1)])
+                ->chunk(2000, function ($monuments) use (&$markers) {
+                    foreach ($monuments as $m) {
+                        $markers[] = $m->toMapMarkerPayload($m->photos->first());
                     }
-                    return [
-                        'id' => $m->id,
-                        'wikidata_id' => $m->wikidata_id,
-                        'name' => $m->name_tr ?? $m->name_en ?? 'Unnamed Monument',
-                        'description' => $m->description_tr ?? $m->description_en,
-                        'coordinates' => [
-                            'lat' => (float) $m->latitude,
-                            'lng' => (float) $m->longitude,
-                        ],
-                        'province' => $m->province,
-                        'city' => $m->city,
-                        'location_hierarchy_tr' => $m->location_hierarchy_tr,
-                        'has_photos' => (bool) $m->has_photos,
-                        'photo_count' => (int) $m->photo_count,
-                        'featured_photo' => $featured,
-                        'url' => "/monuments/{$m->id}",
-                    ];
                 });
-            };
 
-            // Warm with a slightly longer TTL to bridge refresh gaps
-            Cache::put($cacheKey, $compute(), now()->addMinutes(15));
+            Cache::put($cacheKey, $markers, now()->addMinutes(15));
         }
     }
 }
-
-

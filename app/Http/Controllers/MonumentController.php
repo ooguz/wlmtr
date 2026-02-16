@@ -296,7 +296,7 @@ class MonumentController extends Controller
         $b = $request->get('bounds');
 
         $query = Monument::query()
-            ->select(['id', 'wikidata_id', 'name_tr', 'name_en', 'latitude', 'longitude', 'province', 'city', 'location_hierarchy_tr', 'has_photos', 'photo_count', 'properties'])
+            ->select(['id', 'wikidata_id', 'name_tr', 'name_en', 'description_tr', 'description_en', 'latitude', 'longitude', 'province', 'city', 'location_hierarchy_tr', 'has_photos', 'photo_count', 'properties'])
             ->whereNotNull('latitude')
             ->whereNotNull('longitude');
 
@@ -363,61 +363,16 @@ class MonumentController extends Controller
         }
 
         $compute = function () use ($query) {
-            return $query->get()->map(function ($m) {
-                // Build structured featured photo including author/license when available
-                $featured = null;
-                $fp = $m->featured_photo;
-                if ($fp) {
-                    if (is_object($fp)) {
-                        $featured = [
-                            'title' => $fp->title ?? ($m->name_tr ?? $m->name_en),
-                            'photographer' => $fp->photographer ?? null,
-                            'license' => $fp->license_display_name ?? ($fp->license ?? null),
-                            'commons_url' => $fp->commons_url ?? null,
-                            'display_url' => $fp->display_url ?? $fp->full_resolution_url ?? null,
-                            'full_resolution_url' => $fp->full_resolution_url ?? $fp->display_url ?? null,
-                        ];
-                    } else {
-                        // String URL fallback just in case
-                        $featured = [
-                            'title' => $m->name_tr ?? $m->name_en,
-                            'photographer' => null,
-                            'license' => null,
-                            'commons_url' => null,
-                            'display_url' => (string) $fp,
-                            'full_resolution_url' => (string) $fp,
-                        ];
+            $markers = [];
+            (clone $query)
+                ->with(['photos' => fn ($q) => $q->orderByRaw('is_featured DESC')->orderBy('id')->limit(1)])
+                ->chunk(2000, function ($monuments) use (&$markers) {
+                    foreach ($monuments as $m) {
+                        $markers[] = $m->toMapMarkerPayload($m->photos->first());
                     }
-                }
+                });
 
-                // Minimal type/category metadata for client-side filtering
-                $props = is_array($m->properties) ? $m->properties : (is_string($m->properties) ? (json_decode($m->properties, true) ?: []) : []);
-                $typeQid = $props['instance_of'] ?? null;
-                $typeLabelTr = $props['instance_of_label_tr'] ?? null;
-                $categoryQid = $typeQid;
-                $categoryLabelTr = $typeLabelTr;
-
-                return [
-                    'id' => $m->id,
-                    'wikidata_id' => $m->wikidata_id,
-                    'name' => $m->name_tr ?? $m->name_en ?? 'Unnamed Monument',
-                    'description' => $m->description_tr ?? $m->description_en,
-                    'coordinates' => [
-                        'lat' => (float) $m->latitude,
-                        'lng' => (float) $m->longitude,
-                    ],
-                    'province' => $m->province,
-                    'has_photos' => (bool) $m->has_photos,
-                    'photo_count' => (int) $m->photo_count,
-                    // Category fields for client filtering
-                    'category_qid' => $categoryQid,
-                    'category_label_tr' => $categoryLabelTr,
-                    'type_qid' => $typeQid,
-                    'type_label_tr' => $typeLabelTr,
-                    'featured_photo' => $featured,
-                    'url' => "/monuments/{$m->id}",
-                ];
-            });
+            return $markers;
         };
 
         if ($coverage === 'turkey' && $cacheKey) {
@@ -427,11 +382,9 @@ class MonumentController extends Controller
                     ->header('Cache-Control', 'public, max-age='.$ttlSeconds)
                     ->header('X-Cache', 'HIT');
             }
-            // On cache miss: always compute and return markers (never return empty)
+
             $markers = $compute();
             Cache::put($cacheKey, $markers, now()->addMinutes(10));
-
-            // Dispatch warm job in background to refresh cache for subsequent requests
             \App\Jobs\WarmTurkeyMarkersJob::dispatch();
 
             return response()->json($markers)
