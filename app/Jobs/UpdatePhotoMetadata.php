@@ -44,13 +44,13 @@ class UpdatePhotoMetadata implements ShouldQueue
         ]);
 
         $query = Photo::query();
-        
+
         // Only update photos that don't have photographer/license info
-        if (!$this->forceUpdate) {
+        if (! $this->forceUpdate) {
             $query->where(function ($q) {
                 $q->whereNull('photographer')
-                  ->orWhereNull('license')
-                  ->orWhere('license', 'Unknown');
+                    ->orWhereNull('license')
+                    ->orWhere('license', 'Unknown');
             });
         }
 
@@ -66,19 +66,20 @@ class UpdatePhotoMetadata implements ShouldQueue
         foreach ($photos as $photo) {
             try {
                 $processedCount++;
-                
+
                 // Skip if already has metadata and not forcing update
-                if (!$this->forceUpdate && $photo->photographer && $photo->license && $photo->license !== 'Unknown') {
+                if (! $this->forceUpdate && $photo->photographer && $photo->license && $photo->license !== 'Unknown') {
                     Log::debug('Skipping photo with existing metadata', [
                         'photo_id' => $photo->id,
                         'photographer' => $photo->photographer,
                         'license' => $photo->license,
                     ]);
+
                     continue;
                 }
 
                 $metadata = $this->fetchPhotoMetadata($photo->commons_filename);
-                
+
                 if ($metadata) {
                     $photo->update([
                         'photographer' => $metadata['photographer'],
@@ -87,9 +88,9 @@ class UpdatePhotoMetadata implements ShouldQueue
                         'title' => $metadata['title'] ?? $photo->title,
                         'description' => $metadata['description'] ?? $photo->description,
                     ]);
-                    
+
                     $updatedCount++;
-                    
+
                     Log::debug('Updated photo metadata', [
                         'photo_id' => $photo->id,
                         'filename' => $photo->commons_filename,
@@ -128,7 +129,7 @@ class UpdatePhotoMetadata implements ShouldQueue
         try {
             // Remove 'File:' prefix if present
             $cleanFilename = str_replace('File:', '', $filename);
-            
+
             $query = [
                 'action' => 'query',
                 'format' => 'json',
@@ -141,35 +142,35 @@ class UpdatePhotoMetadata implements ShouldQueue
                 'User-Agent' => 'WikiLovesMonumentsTurkey/1.0 (https://wlmtr.org; mailto:info@wlmtr.org)',
             ])->timeout(10)->get('https://commons.wikimedia.org/w/api.php', $query);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 return null;
             }
 
             $data = $response->json();
             $page = $data['query']['pages'][array_key_first($data['query']['pages'])] ?? null;
-            
-            if (!$page || !isset($page['imageinfo'][0]['extmetadata'])) {
+
+            if (! $page || ! isset($page['imageinfo'][0]['extmetadata'])) {
                 return null;
             }
 
             $extmetadata = $page['imageinfo'][0]['extmetadata'];
-            
+
             $photographer = $extmetadata['Artist']['value'] ?? null;
             $licenseShortName = $extmetadata['LicenseShortName']['value'] ?? null;
             $license = $extmetadata['License']['value'] ?? null;
             $title = $extmetadata['ImageDescription']['value'] ?? null;
             $description = $extmetadata['ImageDescription']['value'] ?? null;
-            
+
             // Clean up photographer (strip HTML if present)
             if ($photographer) {
                 $photographer = strip_tags($photographer);
             }
-            
+
             // Clean up title/description (strip HTML if present)
             if ($title) {
                 $title = strip_tags($title);
             }
-            
+
             if ($description) {
                 $description = strip_tags($description);
             }
@@ -187,6 +188,7 @@ class UpdatePhotoMetadata implements ShouldQueue
                 'filename' => $filename,
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
