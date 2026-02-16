@@ -427,22 +427,16 @@ class MonumentController extends Controller
                     ->header('Cache-Control', 'public, max-age='.$ttlSeconds)
                     ->header('X-Cache', 'HIT');
             }
-            // Determine if filtered request; if filtered, compute on miss to avoid empty results
-            $isFiltered = $request->filled('q') || $request->filled('province') || $request->filled('category') || $request->has('has_photos');
-            if ($isFiltered) {
-                $markers = $compute();
-                Cache::put($cacheKey, $markers, now()->addMinutes(10));
+            // On cache miss: always compute and return markers (never return empty)
+            $markers = $compute();
+            Cache::put($cacheKey, $markers, now()->addMinutes(10));
 
-                return response()->json($markers)
-                    ->header('Cache-Control', 'public, max-age='.$ttlSeconds)
-                    ->header('X-Cache', 'MISS-COMPUTED');
-            }
-            // Unfiltered: dispatch warm job and return fast, empty set
+            // Dispatch warm job in background to refresh cache for subsequent requests
             \App\Jobs\WarmTurkeyMarkersJob::dispatch();
 
-            return response()->json([])
-                ->header('Cache-Control', 'no-cache')
-                ->header('X-Cache', 'MISS');
+            return response()->json($markers)
+                ->header('Cache-Control', 'public, max-age='.$ttlSeconds)
+                ->header('X-Cache', 'MISS-COMPUTED');
         }
 
         $markers = $cacheKey ? Cache::remember($cacheKey, $ttlSeconds, $compute) : $compute();
